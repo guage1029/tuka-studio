@@ -24,6 +24,17 @@ import config
 REQUEST_TIMEOUT = 120
 CONFIG_PATH = Path(__file__).resolve().parent / "ai_config.json"
 
+# 生成正文的默认额度。推理模型（M3 / M2.x）的思考长度不可预测：实测同一个
+# 提示词有时几百 token 就结束，有时思考直接吃掉 8192 全部额度导致正文为空。
+# 给到 32768 留足余量；按实际输出 token 计费，额度调大不会多花钱。
+DEFAULT_MAX_OUTPUT_TOKENS = 32768
+# 首次额度被思考占满时，重试一次并放大到这个上限。
+TOKEN_RETRY_CEILING = 65536
+# 额度放大后必须同步放大超时，否则大额度请求会先超时、反而更拿不到结果。
+# MiniMax-M3 实测约 44 tok/s，这里按 20 tok/s 保守估算并封顶。
+TOKEN_TIMEOUT_DIVISOR = 20
+MAX_REQUEST_TIMEOUT = 900
+
 PROVIDERS = {
     "gemini": {
         "label": "Google Gemini",
@@ -45,6 +56,9 @@ PROVIDERS = {
         # 默认国内站，鉴权失败时自动回退国际站一次。
         "base_url": "https://api.minimaxi.com/v1",
         "alt_base_urls": ["https://api.minimax.io/v1"],
+        # 让思考单独进 reasoning_content 字段，content 只剩正文，
+        # 避免思考被内联进 JSON 导致解析失败。全系列实测都接受该参数。
+        "reasoning_split": True,
         "docs": "https://platform.minimaxi.com/docs/api-reference/text-chat-openai",
         "models": [
             "MiniMax-M3",
@@ -432,9 +446,19 @@ def _gemini_generate(prompt: str, api_key: str, model_name: str, temperature: fl
     return _strip_fence(text)
 
 
-def _openai_compatible_generate(prompt: str, meta: dict, api_key: str, base_url: str,
-                                model_name: str, temperature: float,
-                                max_output_tokens: int = 8192) -> str:
+def _timeout_for_tokens(max_tokens: int) -> int:
+    """按 token 额度估算超时，避免额度放大后反而先超时"""
+    return min(MAX_REQUEST_TIMEOUT,
+               REQUEST_TIMEOUT + max_tokens // TOKEN_TIMEOUT_DIVISOR)
+
+
+def _openai_compatible_attempt(prompt: str, meta: dict, api_key: str, base_url: str,
+                               model_name: str, temperature: float,
+                               max_output_tokens: int) -> tuple:
+    """单次请求，内部含 MiniMax 国内/国际站回退。
+
+    返回 (剥离后的正文, finish_reason, 原始 content)；正文为空时返回空串。
+    """
     label = meta["label"]
     body = {
         "model": model_name,
@@ -443,21 +467,24 @@ def _openai_compatible_generate(prompt: str, meta: dict, api_key: str, base_url:
         "max_completion_tokens": max_output_tokens,
         "stream": False,
     }
+    if meta.get("reasoning_split"):
+        body["reasoning_split"] = True
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
+    timeout = _timeout_for_tokens(max_output_tokens)
 
     hosts = [base_url] + [u for u in meta.get("alt_base_urls") or [] if u != base_url]
     last = None
     for host in hosts:
         try:
             resp = requests.post(f"{host.rstrip('/')}/chat/completions",
-                                 headers=headers, json=body, timeout=REQUEST_TIMEOUT)
+                                 headers=headers, json=body, timeout=timeout)
         except requests.exceptions.Timeout as exc:
             raise AIProviderError(
                 "timeout",
-                f"{label} 请求超时（{REQUEST_TIMEOUT}秒）。请检查网络或代理是否可用。",
+                f"{label} 请求超时（{timeout}秒）。请检查网络或代理是否可用。",
                 _truncate(str(exc)),
             ) from exc
         except requests.exceptions.RequestException as exc:
@@ -471,7 +498,8 @@ def _openai_compatible_generate(prompt: str, meta: dict, api_key: str, base_url:
             raise _classify_status(resp.status_code, resp.text, label, model_name)
 
         try:
-            content = resp.json()["choices"][0]["message"].get("content") or ""
+            choice = resp.json()["choices"][0]
+            content = choice["message"].get("content") or ""
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             raise AIProviderError(
                 "bad_response",
@@ -480,21 +508,54 @@ def _openai_compatible_generate(prompt: str, meta: dict, api_key: str, base_url:
                 resp.status_code,
             ) from exc
 
-        # 先剥思考过程再剥代码块围栏：部分模型会把 ```json 放在 <think> 之后
+        # 先剥思考过程再剥代码块围栏：未开 reasoning_split 的模型会把
+        # ```json 放在 <think> 之后；开了也要保留这层兜底。
         text = _strip_fence(_strip_think(content))
-        if not text.strip():
-            raise AIProviderError(
-                "empty_response",
-                f"{label} 模型 {model_name} 只返回了思考过程、正文为空。"
-                "通常是 max_completion_tokens 被思考占满，调大额度或换非推理模型。",
-                _truncate(content),
-                resp.status_code,
-            )
-        return text
+        return text, choice.get("finish_reason"), content
 
     if last is not None:
         raise last
     raise AIProviderError("auth_failed", f"{label} 鉴权失败：API Key 无效、已过期或未开通该模型权限。")
+
+
+def _openai_compatible_generate(prompt: str, meta: dict, api_key: str, base_url: str,
+                                model_name: str, temperature: float,
+                                max_output_tokens: int = None) -> str:
+    label = meta["label"]
+    budget = max_output_tokens or DEFAULT_MAX_OUTPUT_TOKENS
+    attempts = [budget]
+    if budget < TOKEN_RETRY_CEILING:
+        attempts.append(min(TOKEN_RETRY_CEILING, budget * 4))
+
+    raw = ""
+    finish = None
+    for i, current in enumerate(attempts):
+        text, finish, raw = _openai_compatible_attempt(
+            prompt, meta, api_key, base_url, model_name, temperature, current)
+        # finish_reason=length 表示额度被吃光：正文要么为空，要么是被腰斩的
+        # JSON，两种都得用更大额度重来，不能当成成功。
+        if text and finish != "length":
+            return text
+        if i < len(attempts) - 1:
+            print(f"  ⚠️ {label} {model_name} 在 {current} token 额度下被截断"
+                  f"（finish_reason=length），放大到 {attempts[i + 1]} 重试")
+
+    if finish == "length":
+        # 额度被思考吃光：换个说法并给出真正有效的建议
+        raise AIProviderError(
+            "truncated",
+            f"{label} 模型 {model_name} 的思考过程耗尽了 token 额度"
+            f"（已重试到 {attempts[-1]}，仍被截断）。"
+            "长文摘要对推理模型很吃额度，建议改用非推理模型"
+            "（如 MiniMax-M2.5-highspeed），或把原文拆短后再生成。",
+            _truncate(raw) if raw.strip() else "模型返回了完全空白的响应。",
+        )
+    raise AIProviderError(
+        "empty_response",
+        f"{label} 模型 {model_name} 返回了空内容（已尝试 {attempts[-1]} token 额度）。"
+        "若这是推理模型，可能是思考占满了额度，可换非推理模型重试。",
+        _truncate(raw) if raw.strip() else "模型返回了完全空白的响应。",
+    )
 
 
 def _models_from_openai_compatible(meta: dict, api_key: str) -> list:

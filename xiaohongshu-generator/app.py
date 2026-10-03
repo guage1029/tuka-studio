@@ -34,6 +34,7 @@ _AI_ERROR_STATUS = {
     'service_unavailable': 502,
     'bad_response': 502,
     'empty_response': 502,
+    'truncated': 502,
 }
 
 
