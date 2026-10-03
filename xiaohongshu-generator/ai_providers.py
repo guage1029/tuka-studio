@@ -40,8 +40,12 @@ PROVIDERS = {
     "minimax": {
         "label": "MiniMax",
         "kind": "openai_compatible",
-        "base_url": "https://api.minimax.io/v1",
-        "docs": "https://platform.minimax.io/docs/api-reference/text-chat-openai",
+        # MiniMax 按站点分区发 Key：国内站 Key 只认 api.minimaxi.com，
+        # 国际站 Key 只认 api.minimax.io，选错会直接 401 invalid api key。
+        # 默认国内站，鉴权失败时自动回退国际站一次。
+        "base_url": "https://api.minimaxi.com/v1",
+        "alt_base_urls": ["https://api.minimax.io/v1"],
+        "docs": "https://platform.minimaxi.com/docs/api-reference/text-chat-openai",
         "models": [
             "MiniMax-M3",
             "MiniMax-M2.7",
@@ -352,6 +356,28 @@ def _strip_fence(text: str) -> str:
     return text.strip()
 
 
+_THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+_THINK_OPEN = re.compile(r"<think>.*\Z", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_think(text: str) -> str:
+    """
+    剥掉推理模型塞在正文前面的思考过程。
+
+    MiniMax M2.x / M3 等模型会把 CoT 以 <think>...</think> 内联在
+    message.content 开头（不是 reasoning_content 字段）。不剥掉的话：
+      - test_connection 会把思考过程当成"回复"展示给用户；
+      - generate_json 的下游 json.loads 直接失败（正文不以 { 开头）。
+    未闭合的残缺 <think>（token 被 max_completion_tokens 截断）也要一起清掉。
+    """
+    text = (text or "").strip()
+    if "<think>" not in text.lower():
+        return text
+    text = _THINK_BLOCK.sub("", text)
+    text = _THINK_OPEN.sub("", text)
+    return text.strip()
+
+
 def _gemini_text(response) -> str:
     """
     安全取文本。思考型模型在小 max_output_tokens 下会返回"没有有效 Part"的响应，
@@ -410,7 +436,6 @@ def _openai_compatible_generate(prompt: str, meta: dict, api_key: str, base_url:
                                 model_name: str, temperature: float,
                                 max_output_tokens: int = 8192) -> str:
     label = meta["label"]
-    url = f"{base_url.rstrip('/')}/chat/completions"
     body = {
         "model": model_name,
         "messages": [{"role": "user", "content": prompt}],
@@ -423,30 +448,79 @@ def _openai_compatible_generate(prompt: str, meta: dict, api_key: str, base_url:
         "Content-Type": "application/json",
     }
 
-    try:
-        resp = requests.post(url, headers=headers, json=body, timeout=REQUEST_TIMEOUT)
-    except requests.exceptions.Timeout as exc:
-        raise AIProviderError(
-            "timeout",
-            f"{label} 请求超时（{REQUEST_TIMEOUT}秒）。请检查网络或代理是否可用。",
-            _truncate(str(exc)),
-        ) from exc
-    except requests.exceptions.RequestException as exc:
-        raise _classify_request_exception(exc, label) from exc
+    hosts = [base_url] + [u for u in meta.get("alt_base_urls") or [] if u != base_url]
+    last = None
+    for host in hosts:
+        try:
+            resp = requests.post(f"{host.rstrip('/')}/chat/completions",
+                                 headers=headers, json=body, timeout=REQUEST_TIMEOUT)
+        except requests.exceptions.Timeout as exc:
+            raise AIProviderError(
+                "timeout",
+                f"{label} 请求超时（{REQUEST_TIMEOUT}秒）。请检查网络或代理是否可用。",
+                _truncate(str(exc)),
+            ) from exc
+        except requests.exceptions.RequestException as exc:
+            last = _classify_request_exception(exc, label)
+            continue
 
-    if resp.status_code != 200:
-        raise _classify_status(resp.status_code, resp.text, label, model_name)
+        # 401/403 换站重试：MiniMax 国内/国际站 Key 不互通
+        if resp.status_code in (401, 403) and host != hosts[-1]:
+            continue
+        if resp.status_code != 200:
+            raise _classify_status(resp.status_code, resp.text, label, model_name)
 
-    try:
-        payload = resp.json()
-        return _strip_fence(payload["choices"][0]["message"].get("content") or "")
-    except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise AIProviderError(
-            "bad_response",
-            f"{label} 返回了无法解析的响应结构：{exc}",
-            _truncate(resp.text),
-            resp.status_code,
-        ) from exc
+        try:
+            content = resp.json()["choices"][0]["message"].get("content") or ""
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            raise AIProviderError(
+                "bad_response",
+                f"{label} 返回了无法解析的响应结构：{exc}",
+                _truncate(resp.text),
+                resp.status_code,
+            ) from exc
+
+        # 先剥思考过程再剥代码块围栏：部分模型会把 ```json 放在 <think> 之后
+        text = _strip_fence(_strip_think(content))
+        if not text.strip():
+            raise AIProviderError(
+                "empty_response",
+                f"{label} 模型 {model_name} 只返回了思考过程、正文为空。"
+                "通常是 max_completion_tokens 被思考占满，调大额度或换非推理模型。",
+                _truncate(content),
+                resp.status_code,
+            )
+        return text
+
+    if last is not None:
+        raise last
+    raise AIProviderError("auth_failed", f"{label} 鉴权失败：API Key 无效、已过期或未开通该模型权限。")
+
+
+def _models_from_openai_compatible(meta: dict, api_key: str) -> list:
+    """查询 OpenAI 兼容端的 /models，同样按站点回退，避免 Key 与站点不匹配"""
+    label = meta["label"]
+    hosts = [meta["base_url"]] + [u for u in meta.get("alt_base_urls") or [] if u != meta["base_url"]]
+    last = None
+    for host in hosts:
+        try:
+            resp = requests.get(f"{host.rstrip('/')}/models",
+                                headers={"Authorization": f"Bearer {api_key}"},
+                                timeout=MODEL_LIST_TIMEOUT)
+        except requests.exceptions.RequestException as exc:
+            last = _classify_request_exception(exc, label)
+            continue
+        if resp.status_code in (401, 403) and host != hosts[-1]:
+            continue
+        if resp.status_code != 200:
+            last = _classify_status(resp.status_code, resp.text, label, f"{host}/models")
+            continue
+        models = sorted(item.get("id") for item in resp.json().get("data", []) if item.get("id"))
+        if models:
+            return models
+    if last is not None:
+        raise last
+    return []
 
 
 def generate_json(prompt: str, temperature: float = 0.7, provider: str = None,
@@ -515,7 +589,9 @@ def test_connection(provider: str, api_key: str = None, model: str = None) -> di
             meta["base_url"],
             model_name,
             temperature=0.0,
-            max_output_tokens=256,
+            # 推理模型（M2.x / M3）会先花掉一部分额度思考，
+            # 256 容易被思考占满导致正文为空，这里给足余量
+            max_output_tokens=1024,
         )
 
     elapsed = time.time() - started
@@ -575,18 +651,7 @@ def list_remote_models(provider: str, api_key: str = None) -> list:
         ]
         models = sorted(set(names))
     else:
-        url = f"{meta['base_url'].rstrip('/')}/models"
-        try:
-            resp = requests.get(
-                url,
-                headers={"Authorization": f"Bearer {key}"},
-                timeout=MODEL_LIST_TIMEOUT,
-            )
-        except requests.exceptions.RequestException as exc:
-            raise _classify_request_exception(exc, meta["label"]) from exc
-        if resp.status_code != 200:
-            raise _classify_status(resp.status_code, resp.text, meta["label"], url)
-        models = sorted(item.get("id") for item in resp.json().get("data", []) if item.get("id"))
+        models = _models_from_openai_compatible(meta, key)
 
     if not models:
         raise AIProviderError(
