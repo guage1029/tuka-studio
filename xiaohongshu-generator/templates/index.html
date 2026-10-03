@@ -374,6 +374,151 @@
             gap: 8px;
         }
 
+        /* ---- 模型选择器：可编辑输入 + 真实下拉面板 ----
+           不用 <datalist>：输入框已有值时浏览器不弹建议，且没有任何"这里有列表"的提示。
+           面板用 position:fixed 避开 .input-panel 的 overflow 裁剪。 */
+        .ai-model-field {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .ai-model-toggle {
+            position: absolute;
+            right: 1px;
+            top: 1px;
+            bottom: 1px;
+            width: 28px;
+            display: grid;
+            place-items: center;
+            background: none;
+            border: none;
+            border-left: 1px solid var(--border);
+            border-radius: 0 6px 6px 0;
+            color: var(--text-tertiary);
+            padding: 0;
+        }
+
+        .ai-model-toggle:hover {
+            background: var(--surface-sunken);
+            color: var(--text);
+        }
+
+        .ai-model-toggle .icon {
+            font-size: 13px;
+            transition: transform var(--dur-1) var(--ease);
+        }
+
+        .ai-model-toggle[aria-expanded="true"] .icon {
+            transform: rotate(90deg);
+        }
+
+        .ai-input.ai-has-toggle {
+            padding-right: 32px;
+            border-radius: 7px 0 0 7px;
+        }
+
+        .ai-model-panel {
+            position: fixed;
+            z-index: 60;
+            display: none;
+            flex-direction: column;
+            min-width: 260px;
+            max-width: min(420px, calc(100vw - 24px));
+            max-height: 260px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            box-shadow: var(--sh-3);
+            overflow: hidden;
+        }
+
+        .ai-model-panel.open {
+            display: flex;
+        }
+
+        .ai-model-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--s-2);
+            padding: 8px 10px;
+            font-size: 10px;
+            color: var(--text-tertiary);
+            border-bottom: 1px solid var(--border-subtle);
+            background: var(--surface-sunken);
+        }
+
+        .ai-model-panel-head b {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .ai-model-list {
+            overflow-y: auto;
+            padding: 4px;
+            margin: 0;
+            list-style: none;
+        }
+
+        .ai-model-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--s-2);
+            width: 100%;
+            padding: 7px 9px;
+            border: none;
+            border-radius: var(--r-sm);
+            background: none;
+            color: var(--text);
+            font-size: 12px;
+            font-family: inherit;
+            text-align: left;
+        }
+
+        .ai-model-option:hover,
+        .ai-model-option.cursor {
+            background: var(--surface-hover);
+        }
+
+        .ai-model-option.current {
+            color: var(--accent-strong);
+            font-weight: 600;
+        }
+
+        .ai-model-option-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ai-model-option-tag {
+            flex-shrink: 0;
+            font-size: 10px;
+            color: var(--text-tertiary);
+        }
+
+        .ai-model-option.current .ai-model-option-tag {
+            color: var(--accent-strong);
+        }
+
+        .ai-model-panel-empty {
+            padding: 14px 10px;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .ai-model-panel-foot {
+            padding: 6px 10px;
+            font-size: 10px;
+            color: var(--text-tertiary);
+            border-top: 1px solid var(--border-subtle);
+            background: var(--surface-sunken);
+        }
+
         .ai-select,
         .ai-input {
             width: 100%;
@@ -1620,14 +1765,35 @@
                     <div class="ai-field">
                         <label class="ai-field-label" for="aiModelInput">模型</label>
                         <div class="ai-field-row">
-                            <input class="ai-input" id="aiModelInput" list="aiModelList"
-                                placeholder="选择或手动输入模型名" autocomplete="off"
-                                oninput="onModelInput()" onchange="onModelInput()">
-                            <datalist id="aiModelList"></datalist>
-                            <button class="ai-action-btn" id="aiModelsRefreshBtn" style="flex:0 0 auto;padding:7px 10px;background:#fff;color:#666;border:1px solid #ddd;font-weight:500;"
+                            <div class="ai-model-field">
+                                <input class="ai-input ai-has-toggle" id="aiModelInput" autocomplete="off"
+                                    placeholder="选择或手动输入模型名"
+                                    oninput="onModelInput()" onchange="onModelInput()"
+                                    onfocus="onModelActivate()" onclick="onModelActivate()" onkeydown="onModelKeydown(event)"
+                                    role="combobox" aria-autocomplete="list" aria-expanded="false"
+                                    aria-controls="aiModelPanel">
+                                <button class="ai-model-toggle" id="aiModelToggle" type="button"
+                                    onclick="toggleModelPanel(event)" aria-expanded="false"
+                                    aria-controls="aiModelPanel" aria-label="展开模型列表" tabindex="-1">
+                                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="m9 18 6-6-6-6" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <button class="ai-action-btn" id="aiModelsRefreshBtn"
+                                style="flex:0 0 auto;padding:7px 10px;background:#fff;color:#666;border:1px solid #ddd;font-weight:500;"
                                 onclick="refreshAiModels(true)">检索</button>
                         </div>
                         <div class="ai-hint" id="aiModelHint"></div>
+                    </div>
+                    <div class="ai-model-panel" id="aiModelPanel" role="listbox"
+                        aria-label="可用模型">
+                        <div class="ai-model-panel-head">
+                            <span id="aiModelPanelSource">内置清单</span>
+                            <b id="aiModelPanelCount"></b>
+                        </div>
+                        <ul class="ai-model-list" id="aiModelList"></ul>
+                        <div class="ai-model-panel-foot">↑↓ 选择 · Enter 确认 · Esc 关闭 · 也可直接输入模型名</div>
                     </div>
                     <div class="ai-field">
                         <label class="ai-field-label" for="aiKeyInput">API Key</label>
@@ -2475,16 +2641,208 @@
         updateProviderHints();
     }
 
+    // ===== 模型选择器 =====
+    // 不用 <datalist>：输入框已有值时浏览器不弹建议，用户看不到候选。
+    // 改为自建下拉面板，显式区分"服务端可用"与"内置清单"两种来源。
+    let aiModelPanelOpen = false;
+    let aiModelCursor = -1;
+    let aiModelOptions = [];
+    // 'none' 未检索过 · 'remote' 服务端返回 · 'builtin' 服务端不可用、回落内置清单
+    let aiModelSource = 'none';
+
+    const AI_MODEL_SOURCE_LABEL = {
+        none: '内置清单（未检索）',
+        remote: '服务端可用',
+        builtin: '内置清单（服务端不可用）'
+    };
+
     function renderModelOptions(models, selected) {
-        const list = document.getElementById('aiModelList');
-        list.innerHTML = '';
-        Array.from(new Set(models.filter(Boolean))).forEach(m => {
-            const option = document.createElement('option');
-            option.value = m;
-            list.appendChild(option);
-        });
+        aiModelOptions = Array.from(new Set((models || []).filter(Boolean)));
+        if (!aiRemoteModels.length && aiModelSource === 'remote') aiModelSource = 'builtin';
+        renderModelPanel(selected);
         if (selected) document.getElementById('aiModelInput').value = selected;
         updateProviderHints();
+    }
+
+    function renderModelPanel(selected) {
+        const list = document.getElementById('aiModelList');
+        const current = (selected !== undefined ? selected
+            : document.getElementById('aiModelInput').value).trim();
+        list.innerHTML = '';
+
+        if (!aiModelOptions.length) {
+            const empty = document.createElement('li');
+            empty.className = 'ai-model-panel-empty';
+            empty.textContent = '暂无模型列表。填写 API Key 后点「检索」从服务端获取。';
+            list.appendChild(empty);
+        } else {
+            aiModelOptions.forEach((name, i) => {
+                const li = document.createElement('li');
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'ai-model-option' + (name === current ? ' current' : '');
+                btn.setAttribute('role', 'option');
+                btn.setAttribute('aria-selected', String(name === current));
+                btn.dataset.index = String(i);
+                btn.dataset.model = name;
+
+                const label = document.createElement('span');
+                label.className = 'ai-model-option-name';
+                label.textContent = name;
+                btn.appendChild(label);
+
+                if (name === current) {
+                    const tag = document.createElement('span');
+                    tag.className = 'ai-model-option-tag';
+                    tag.textContent = '当前';
+                    btn.appendChild(tag);
+                }
+                btn.addEventListener('click', () => selectModelOption(name));
+                li.appendChild(btn);
+                list.appendChild(li);
+            });
+        }
+
+        document.getElementById('aiModelPanelSource').textContent =
+            AI_MODEL_SOURCE_LABEL[aiModelSource] || AI_MODEL_SOURCE_LABEL.none;
+        document.getElementById('aiModelPanelCount').textContent =
+            aiModelOptions.length + ' 个';
+        if (aiModelPanelOpen) positionModelPanel();
+    }
+
+    function selectModelOption(name) {
+        document.getElementById('aiModelInput').value = name;
+        closeModelPanel();
+        updateProviderHints();
+    }
+
+    function positionModelPanel() {
+        const panel = document.getElementById('aiModelPanel');
+        const anchor = document.querySelector('.ai-model-field');
+        const r = anchor.getBoundingClientRect();
+
+        // 上方空间要从设置面板的折叠按钮下沿算起。
+        // 否则空间不够时向上展开，列表会盖住那个按钮，用户就点不到折叠了。
+        let topLimit = 8;
+        const settings = document.getElementById('aiSettings');
+        const toggleEl = document.getElementById('aiSettingsToggle');
+        if (settings && toggleEl && settings.classList.contains('open')) {
+            const tr = toggleEl.getBoundingClientRect();
+            if (tr.bottom < r.top && tr.bottom > topLimit) topLimit = tr.bottom + 6;
+        }
+        const spaceAbove = r.top - topLimit - 6;
+        const spaceBelow = window.innerHeight - r.bottom - 12;
+
+        panel.style.top = '';
+        panel.style.bottom = '';
+        panel.style.maxHeight = '';
+        const natural = panel.offsetHeight;
+        const placeBelow = natural <= spaceBelow || spaceBelow >= spaceAbove;
+        // 首选的一侧仍放不下就压缩面板高度（列表内部滚动），绝不越界压住其他控件
+        panel.style.maxHeight = Math.max(96, Math.min(260, placeBelow ? spaceBelow : spaceAbove)) + 'px';
+
+        if (placeBelow) panel.style.top = (r.bottom + 6) + 'px';
+        else panel.style.bottom = (window.innerHeight - r.top + 6) + 'px';
+        panel.style.left = Math.max(8, Math.min(r.left, window.innerWidth - panel.offsetWidth - 8)) + 'px';
+    }
+
+    function openModelPanel() {
+        const panel = document.getElementById('aiModelPanel');
+        if (panel.classList.contains('open')) return;
+        renderModelPanel();
+        panel.classList.add('open');
+        aiModelPanelOpen = true;
+        aiModelCursor = -1;
+        document.getElementById('aiModelToggle').setAttribute('aria-expanded', 'true');
+        // 焦点统一交给输入框，否则从 ▸ 打开时 ↑↓/Enter/Esc 都不会生效
+        document.getElementById('aiModelInput').focus();
+        document.getElementById('aiModelInput').setAttribute('aria-expanded', 'true');
+        positionModelPanel();
+    }
+
+    function closeModelPanel() {
+        const panel = document.getElementById('aiModelPanel');
+        if (!panel.classList.contains('open')) return;
+        panel.classList.remove('open');
+        aiModelPanelOpen = false;
+        aiModelCursor = -1;
+        document.getElementById('aiModelToggle').setAttribute('aria-expanded', 'false');
+        document.getElementById('aiModelInput').setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleModelPanel(event) {
+        event.stopPropagation();
+        if (aiModelPanelOpen) closeModelPanel(); else openModelPanel();
+        // 无论开合都把焦点收回输入框，否则用 ▸ 关闭后焦点留在按钮上，↑↓/Enter 会失效
+        document.getElementById('aiModelInput').focus();
+    }
+
+    // 空输入时点一下就展开；有值时保持收起，避免打断正在编辑的手动模型名。
+    // 同时挂 focus 和 click：输入框已有焦点时 click 不会再触发 focus。
+    function onModelActivate() {
+        const input = document.getElementById('aiModelInput');
+        if (!aiModelPanelOpen && !input.value.trim()) openModelPanel();
+    }
+
+    function moveModelCursor(step) {
+        if (!aiModelPanelOpen) openModelPanel();
+        const total = aiModelOptions.length;
+        if (!total) return;
+        aiModelCursor = (aiModelCursor + step + total) % total;
+        document.querySelectorAll('.ai-model-option').forEach((el, i) => {
+            el.classList.toggle('cursor', i === aiModelCursor);
+        });
+        const active = document.querySelector('.ai-model-option.cursor');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    function onModelKeydown(e) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            moveModelCursor(1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            moveModelCursor(-1);
+        } else if (e.key === 'Enter') {
+            if (aiModelPanelOpen && aiModelCursor >= 0 && aiModelOptions[aiModelCursor]) {
+                e.preventDefault();
+                selectModelOption(aiModelOptions[aiModelCursor]);
+            }
+        } else if (e.key === 'Escape') {
+            if (aiModelPanelOpen) {
+                e.preventDefault();
+                closeModelPanel();
+            }
+        }
+    }
+
+    // 兜底：焦点不在输入框时（点在面板空白处、按钮上）Esc 也要能收起
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && aiModelPanelOpen) {
+            e.preventDefault();
+            closeModelPanel();
+        }
+    });
+
+    // 面板是 fixed 定位，滚动/缩放时要跟着锚点走。
+    // scroll 不冒泡，用 capture 才能同时抓到 .input-panel 和 window 的滚动。
+    window.addEventListener('resize', () => { if (aiModelPanelOpen) positionModelPanel(); });
+    window.addEventListener('scroll', () => {
+        if (aiModelPanelOpen) positionModelPanel();
+    }, true);
+    document.addEventListener('click', (e) => {
+        if (!aiModelPanelOpen) return;
+        if (e.target.closest('#aiModelPanel') || e.target.closest('.ai-model-field')) return;
+        closeModelPanel();
+    });
+    // 折叠设置面板时一并收起模型面板，否则 fixed 面板会悬在收起后的面板外面
+    if (document.getElementById('aiSettingsToggle')) {
+        document.getElementById('aiSettingsToggle').addEventListener('click', () => {
+            setTimeout(() => { if (!aiModelPanelOpen) return;
+                const open = document.getElementById('aiSettings').classList.contains('open');
+                if (!open) closeModelPanel();
+            }, 0);
+        });
     }
 
     function updateProviderHints() {
@@ -2497,10 +2855,12 @@
         const model = document.getElementById('aiModelInput').value.trim();
         let hint = '当前模型：' + (model || '未选择');
         if (aiRemoteModels.length) {
-            hint += ' · 服务端可选 ' + aiRemoteModels.length + ' 个';
+            hint += ' · 点右侧 ▸ 展开服务端返回的 ' + aiRemoteModels.length + ' 个模型';
             if (model && !aiRemoteModels.includes(model)) hint += ' · 不在上游模型列表中';
         } else if (aiModelsFetchedFor) {
-            hint += ' · 上游列表不可用，显示内置清单';
+            hint += ' · 上游列表不可用，点 ▸ 查看内置清单';
+        } else {
+            hint += ' · 点右侧 ▸ 查看内置清单，或点「检索」从服务端获取';
         }
         document.getElementById('aiModelHint').textContent = hint;
         // 折叠状态下也要能看到"当前用什么模型"，否则用户必须展开面板才知道
@@ -2528,6 +2888,7 @@
         const meta = currentProviderMeta();
         aiRemoteModels = [];
         aiModelsFetchedFor = '';
+        aiModelSource = 'none';
         // 切换提供商后旧的状态提示已经不对应当前选择，清掉避免误导
         document.getElementById('aiStatus').className = 'ai-status';
         if (meta) {
@@ -2551,6 +2912,8 @@
     }
 
     function onModelInput() {
+        // 手动改了模型名，面板里的"当前"标记要跟着挪
+        if (aiModelPanelOpen) renderModelPanel();
         updateProviderHints();
     }
 
@@ -2587,6 +2950,7 @@
 
             aiModelsFetchedFor = key;
             aiRemoteModels = data.source === 'remote' ? data.models : [];
+            aiModelSource = data.source === 'remote' ? 'remote' : 'builtin';
             // 上游列表优先；失败时退回内置清单，保证下拉始终有内容
             const models = data.source === 'remote' ? data.models : (meta ? meta.models : data.models);
             const current = document.getElementById('aiModelInput').value.trim();
@@ -2601,6 +2965,9 @@
             }
         } catch (e) {
             aiModelsFetchedFor = '';
+            // 检索失败：清单仍可用，但要如实标成"服务端不可用"并刷新面板标签
+            aiModelSource = 'builtin';
+            if (meta) renderModelOptions(meta.models, document.getElementById('aiModelInput').value.trim());
             if (manual || e.aiCode) {
                 const target = meta ? meta.label : body.provider;
                 setAiStatus('err', target + ' 检索模型失败: ' + e.message, e.aiDetail);
