@@ -14,8 +14,130 @@ import io
 
 from main import summarize_to_slides, render_html, capture_slides, extract_images_from_markdown, filter_valid_images
 from sensitive_words import detect_sensitive_words, highlight_sensitive_words, get_sensitive_words_by_category
+import ai_providers
 
 app = Flask(__name__)
+
+# AI 错误分类 -> HTTP 状态码。未识别的分类一律 502，
+# 不用 500 掩盖真实的外部服务故障。
+_AI_ERROR_STATUS = {
+    'missing_api_key': 400,
+    'unknown_provider': 400,
+    'bad_request': 400,
+    'auth_failed': 401,
+    'insufficient_balance': 402,
+    'model_not_found': 404,
+    'quota_exhausted': 429,
+    'rate_limited': 429,
+    'timeout': 504,
+    'network': 502,
+    'service_unavailable': 502,
+    'bad_response': 502,
+    'empty_response': 502,
+}
+
+
+def _status_for_ai_error(exc):
+    return _AI_ERROR_STATUS.get(exc.code, 502)
+
+
+def _ai_error_response(exc):
+    return jsonify(exc.to_dict()), _status_for_ai_error(exc)
+
+
+@app.route('/api/ai-config', methods=['GET'])
+def get_ai_config():
+    """返回提供商清单与当前选择。只回显脱敏 Key，不返回明文。"""
+    try:
+        saved = ai_providers.load_config()
+        return jsonify({
+            'success': True,
+            'active_provider': saved['provider'],
+            'providers': ai_providers.provider_public_info(),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai-config', methods=['POST'])
+def update_ai_config():
+    """保存当前提供商/模型与 API Key。空 Key 表示沿用已保存值。"""
+    try:
+        data = request.json or {}
+        provider = data.get('provider')
+        if provider not in ai_providers.PROVIDERS:
+            return jsonify({'error': f'未知提供商：{provider}'}), 400
+
+        saved = ai_providers.load_config()
+        saved['provider'] = provider
+
+        model = (data.get('model') or '').strip()
+        if model:
+            saved['models'][provider] = model
+
+        api_key = (data.get('api_key') or '').strip()
+        if api_key:
+            saved['api_keys'][provider] = api_key
+        elif data.get('clear_key'):
+            saved['api_keys'].pop(provider, None)
+
+        ai_providers.save_config(saved)
+        return jsonify({
+            'success': True,
+            'active_provider': saved['provider'],
+            'providers': ai_providers.provider_public_info(),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai-test', methods=['POST'])
+def test_ai_config():
+    """用最小生成请求验证 Key + 模型 + 配额，不落盘。"""
+    try:
+        data = request.json or {}
+        provider = data.get('provider') or ai_providers.active_provider()
+        result = ai_providers.test_connection(
+            provider,
+            api_key=(data.get('api_key') or '').strip() or None,
+            model=(data.get('model') or '').strip() or None,
+        )
+        return jsonify({'success': True, **result})
+    except ai_providers.AIProviderError as e:
+        return _ai_error_response(e)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai-models', methods=['POST'])
+def list_ai_models():
+    """查询上游实际可用模型，失败时回退到内置清单"""
+    try:
+        data = request.json or {}
+        provider = data.get('provider') or ai_providers.active_provider()
+        api_key = (data.get('api_key') or '').strip() or None
+        try:
+            models = ai_providers.list_remote_models(provider, api_key=api_key)
+            return jsonify({
+                'success': True,
+                'provider': provider,
+                'models': models,
+                'source': 'remote',
+                'selected': ai_providers.get_model(provider),
+            })
+        except ai_providers.AIProviderError as e:
+            print(f"⚠️  {provider} 模型列表拉取失败（{e.code}）：{e}")
+            return jsonify({
+                'success': False,
+                'provider': provider,
+                'models': ai_providers.PROVIDERS[provider]['models'],
+                'source': 'fallback',
+                'code': e.code,
+                'fallback_reason': str(e),
+                'selected': ai_providers.get_model(provider),
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/')
 def index():
@@ -61,6 +183,8 @@ def generate():
             'count': len(images)
         })
         
+    except ai_providers.AIProviderError as e:
+        return _ai_error_response(e)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -101,7 +225,11 @@ def preview():
             'image_count': len(valid_images)
         })
         
+    except ai_providers.AIProviderError as e:
+        return _ai_error_response(e)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 
@@ -158,35 +286,34 @@ def regenerate_slide():
         
         print(f"🔄 重新生成第 {slide_index} 张幻灯片")
         
-        import google.generativeai as genai
-        import config
-        
-        genai.configure(api_key=config.GEMINI_API_KEY)
-        model = genai.GenerativeModel(config.MODEL_NAME)
-        
         if slide_index == 0:
             # 重新生成封面
+            current_title = current_slides_data.get('cover_title', '')
+            current_subtitle = current_slides_data.get('cover_subtitle', '')
+            current_tags = current_slides_data.get('cover_tags', [])
+            
             prompt = f"""你是一个专业的内容编辑，擅长创作小红书风格的封面。
 
-当前封面内容：
-- 标题：{current_slides_data.get('cover_title', '')}
-- 副标题：{current_slides_data.get('cover_subtitle', '')}
-- 标签：{current_slides_data.get('cover_tags', [])}
+【任务】重新生成封面，保持相同主题，但使用不同的表达方式。
 
-请根据以下原文，重新创作一个不同风格的封面，输出 JSON 格式：
+【当前封面内容】
+- 标题：{current_title}
+- 副标题：{current_subtitle}
+- 标签：{current_tags}
+
+【要求】
+1. 主题必须与当前封面一致（围绕"{current_title}"这个主题）
+2. 用不同的角度、不同的表达方式重新阐述
+3. 标题要吸引眼球，使用小红书风格的表达（10字以内）
+4. 副标题用一句话概括文章主旨
+5. 标签要与主题相关，3-5个，每个3-6字
+
+【输出格式】JSON：
 {{
     "cover_title": "新的封面大标题（简短有力，10字以内）",
     "cover_subtitle": "新的封面副标题（一句话概括文章主旨）",
     "cover_tags": ["标签1", "标签2", "标签3"]
 }}
-
-要求：
-1. 与原封面风格不同，但同样吸引眼球
-2. 标题要使用小红书风格的表达
-3. 标签要与文章主题相关，3-5个
-
-原文内容：
-{original_content[:2000]}
 
 只输出 JSON，不要其他内容。"""
         else:
@@ -194,38 +321,43 @@ def regenerate_slide():
             slide_idx = slide_index - 1
             current_slide = current_slides_data.get('slides', [])[slide_idx] if slide_idx < len(current_slides_data.get('slides', [])) else {}
             
+            # 获取当前页面的标题和内容，作为主题参考
+            current_title = current_slide.get('title', '')
+            current_content = current_slide.get('content', [])
+            current_content_text = '\n'.join([f"- {item}" for item in current_content])
+            
             prompt = f"""你是一个专业的内容编辑，擅长创作小红书风格的内容页。
 
-当前第 {slide_index} 张内容页：
-- 标题：{current_slide.get('title', '')}
-- 内容：{current_slide.get('content', [])}
+【任务】重新生成第 {slide_index} 张内容页，保持相同主题，但使用不同的表达方式。
 
-请根据以下原文，重新创作这一页的内容，输出 JSON 格式：
+【当前页面内容】
+标题：{current_title}
+要点：
+{current_content_text}
+
+【要求】
+1. 主题必须与当前页面一致（围绕"{current_title}"这个主题）
+2. 用不同的角度、不同的表达方式重新阐述相同的核心信息
+3. 可以调整要点的顺序、合并或拆分要点
+4. 标题可以换一种说法，但主题不变
+5. 每个要点控制在 35 字以内
+6. 内容要有信息量，不要空泛
+
+【输出格式】JSON：
 {{
-    "title": "新的幻灯片标题（8字以内）",
+    "title": "新的幻灯片标题（8字以内，主题与原标题一致）",
     "content": ["要点1", "要点2", "要点3", "要点4"]
 }}
 
-要求：
-1. 与原内容风格不同，但保持核心信息
-2. 标题简洁有力
-3. 每个要点控制在 35 字以内
-4. 内容要有信息量，不要空泛
-
-原文内容：
-{original_content[:2000]}
-
 只输出 JSON，不要其他内容。"""
         
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.9,  # 提高随机性以获得不同结果
-                response_mime_type="application/json",
-            ),
-        )
+        try:
+            raw_text = ai_providers.generate_json(prompt, temperature=0.9)
+        except ai_providers.AIProviderError as e:
+            print(f"❌ AI 调用出错 [{e.code}]: {e.detail or e}")
+            return jsonify(e.to_dict()), _status_for_ai_error(e)
         
-        new_content = json.loads(response.text)
+        new_content = json.loads(raw_text)
         
         # 更新 slides_data
         if slide_index == 0:
@@ -235,7 +367,13 @@ def regenerate_slide():
         else:
             slide_idx = slide_index - 1
             if slide_idx < len(current_slides_data.get('slides', [])):
-                current_slides_data['slides'][slide_idx] = new_content
+                # 只更新 title 和 content，保留原有的 image 字段
+                original_image = current_slides_data['slides'][slide_idx].get('image')
+                current_slides_data['slides'][slide_idx]['title'] = new_content.get('title', current_slides_data['slides'][slide_idx].get('title'))
+                current_slides_data['slides'][slide_idx]['content'] = new_content.get('content', current_slides_data['slides'][slide_idx].get('content'))
+                # 保留图片（如果有的话）
+                if original_image:
+                    current_slides_data['slides'][slide_idx]['image'] = original_image
         
         return jsonify({
             'success': True,
@@ -448,4 +586,6 @@ def get_sensitive_categories():
 
 if __name__ == '__main__':
     Path('output').mkdir(exist_ok=True)
-    app.run(debug=True, port=5000)
+    # 监听 '::' 以同时支持 IPv6 和 IPv4：
+    # macOS 上 localhost 优先解析为 ::1，只绑定 127.0.0.1 会导致连接被拒绝。
+    app.run(debug=True, use_reloader=False, host='::', port=5001)

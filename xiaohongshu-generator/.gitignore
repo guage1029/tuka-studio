@@ -49,3 +49,6 @@ htmlcov/
 
 # Playwright
 .playwright/
+
+# AI provider settings (contains API keys)
+ai_config.json

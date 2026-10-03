@@ -15,9 +15,17 @@ from urllib.parse import urlparse
 import requests
 from jinja2 import Environment, FileSystemLoader
 from playwright.async_api import async_playwright
-import google.generativeai as genai
+from google.generativeai.types import RequestOptions
 
-import config
+import ai_providers
+
+# AI 请求超时时间（秒）。没有超时会导致代理不可用时请求永久挂起。
+REQUEST_TIMEOUT = ai_providers.REQUEST_TIMEOUT
+
+
+def _request_options() -> RequestOptions:
+    """构造带超时的请求选项，避免网络不通时无限等待"""
+    return RequestOptions(timeout=REQUEST_TIMEOUT)
 
 
 def read_input_file(filepath: str = "input.txt") -> str:
@@ -107,13 +115,18 @@ def filter_valid_images(image_urls: list[str]) -> list[str]:
     return valid_images
 
 
+import time
+
 def summarize_to_slides(content: str, image_urls: list[str] = None) -> dict:
     """
     调用 Gemini API 将长文总结为幻灯片格式的 JSON，AI 自主决定图片数量
     如果提供了图片 URL 列表，AI 会智能分配图片到对应卡片
     """
-    genai.configure(api_key=config.GEMINI_API_KEY)
-    model = genai.GenerativeModel(config.MODEL_NAME)
+    start_time = time.time()
+    provider_id = ai_providers.active_provider()
+    provider_label = ai_providers.PROVIDERS[provider_id]["label"]
+    model_name = ai_providers.get_model(provider_id)
+    print(f"⏳ 开始调用 {provider_label} API（模型: {model_name}）...")
     
     char_count = len(content)
     has_images = image_urls and len(image_urls) > 0
@@ -190,13 +203,6 @@ def summarize_to_slides(content: str, image_urls: list[str] = None) -> dict:
 4. 每张幻灯片的 content 包含 3-5 个要点
 5. 每个要点控制在 35 字以内，信息密度要高
 6. 内容要有逻辑递进，从引入到总结
-7. 【重要】每个要点必须以一个相关的 emoji 开头，emoji 要与要点内容语义相关，让内容更生动有趣
-
-Emoji 使用规范：
-- 每个要点开头必须有且仅有一个 emoji
-- emoji 要与要点内容高度相关（如：💰 用于金钱相关、📱 用于手机相关、⏰ 用于时间相关）
-- 避免重复使用相同的 emoji，尽量多样化
-- 常用 emoji 参考：✨💡🎯📌🔥💪🌟⭐️🎉🎊💰📱💻🎨🎬📚📖✅❌⚠️💯🏆🥇🔑🎁💎🌈🍀
 
 标签生成原则：
 - 标签要与文章主题高度相关
@@ -218,15 +224,41 @@ Emoji 使用规范：
 
 只输出 JSON，不要其他内容。"""
 
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.GenerationConfig(
-            temperature=0.7,
-            response_mime_type="application/json",
-        ),
-    )
+    try:
+        raw_text = ai_providers.generate_json(prompt, temperature=0.7)
+    except ai_providers.AIProviderError as e:
+        print(f"❌ {provider_label} API 调用出错 [{e.code}]: {e.detail or e}")
+        raise
+    except Exception as e:
+        print(f"❌ {provider_label} API 调用出错: {e}")
+        raise RuntimeError(f"AI 接口调用失败：{type(e).__name__}: {str(e)[:300]}") from e
+    
+    elapsed_time = time.time() - start_time
+    print(f"✅ {provider_label} API 调用完成，耗时: {elapsed_time:.2f}秒")
 
-    result = json.loads(response.text)
+    # 尝试解析 JSON
+    try:
+        result = json.loads(raw_text)
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON 解析失败: {e}")
+        print(f"原始响应: {raw_text}")
+        # 返回一个包含错误信息的默认结构，避免程序崩溃
+        return {
+            "cover_title": "生成失败",
+            "cover_subtitle": "请重试或检查日志",
+            "cover_tags": ["错误"],
+            "cover_image": None,
+            "slides": [
+                {
+                    "title": "解析错误",
+                    "content": ["AI 返回的数据格式不正确", "请查看后台日志"],
+                    "image": None
+                }
+            ]
+        }
+    except Exception as e:
+        print(f"❌ 解析响应出错: {e}")
+        raise e
     
     # 确保返回的数据结构包含图片字段（即使 AI 没有返回）
     if 'cover_image' not in result:
@@ -257,7 +289,7 @@ def render_html(slides_data: dict, style: str = "xiaohongshu") -> str:
     template_map = {
         "xiaohongshu": "template.html",
         "apple": "template_apple.html",
-        "dopamine": "template_dopamine.html",
+        "neobrutalist": "template_neobrutalist.html",
         "capsule": "template_capsule.html",
         "tech": "template_tech.html",
         "notion": "template_notion.html",
@@ -265,6 +297,9 @@ def render_html(slides_data: dict, style: str = "xiaohongshu") -> str:
         "chinese": "template_chinese.html",
         "polaroid": "template_polaroid.html",
         "streaming": "template_streaming.html",
+        "journal": "template_journal.html",
+        "magazine": "template_magazine.html",
+        "ins": "template_ins.html",
     }
     
     template_file = template_map.get(style, "template.html")
