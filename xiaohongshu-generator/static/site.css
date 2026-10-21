@@ -210,6 +210,7 @@ input,select,textarea{font-size:16px}.steps p,.privacy-copy p{font-size:16px}.he
 @media(max-width:999px), (max-height:699px){.workbench-page .workspace{padding-top:20px}.workbench-page .source-section textarea{min-height:45vh}.workbench-page .output-column{margin-top:20px}.workbench-page .input-column{display:flex}}
 @media(max-width:600px){.workspace-header{flex-wrap:wrap}.workspace-settings{margin-left:auto}.workspace-footer{max-width:100%}.workbench-page #content{font-size:16px}.workspace-settings .header-model-config>summary{min-height:44px}}
 @media(max-width:600px), (pointer:coarse){.workbench-page .style-option{min-height:44px}.workbench-page .style-option-name{white-space:normal;overflow:visible}}
+@media(min-width:1800px){.workbench-page .style-grid{grid-template-columns:repeat(auto-fill,minmax(52px,1fr))}}
 @media(min-width:640px) and (pointer:fine){
   .workbench-page{height:auto;min-height:100dvh;overflow-x:hidden;overflow-y:auto}
   .workbench-page .workspace{display:flex;flex-direction:column;width:calc(100% - clamp(24px,4vw,48px));height:auto;min-height:100dvh;padding:clamp(12px,2vh,20px) 0}
