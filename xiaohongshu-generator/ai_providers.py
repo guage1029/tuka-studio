@@ -20,6 +20,15 @@ PROVIDERS = {
     'doubao': {'name': '豆包（火山方舟）', 'protocol': 'openai', 'base_url': 'https://ark.cn-beijing.volces.com/api/v3',
                'models': ('doubao-seed-2-1-lite-260915', 'doubao-seed-2-1-pro-260915',
                           'doubao-seed-2-1-turbo-260628', 'doubao-seed-2-0-mini-260428')},
+    'qwen': {'name': '阿里云百炼（通义千问）', 'protocol': 'openai', 'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+             'models': ('qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-plus', 'qwen-plus')},
+    'qianfan': {'name': '百度千帆（文心 ERNIE）', 'protocol': 'openai', 'base_url': 'https://qianfan.baidubce.com/v2',
+                'models_path': '/models', 'prefixes': ('ernie-',), 'model_owner': 'Baidu',
+                'model_types': ('chat', 'multimodal'), 'model_endpoint': '/v2/chat/completions'},
+    'hunyuan': {'name': '腾讯混元（TokenHub）', 'protocol': 'openai', 'base_url': 'https://tokenhub.tencentmaas.com/v1',
+                'models_path': '/models', 'exact_models': ('hy3', 'hy4'),
+                'prefixes': ('hy4-', 'hy-mt2-', 'hy-role', 'hunyuan-role-'),
+                'online_only': True},
 }
 CATALOG_DATE = '2026-10-21'
 MODEL_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,199}\Z')
@@ -39,8 +48,9 @@ def valid_model(provider, model):
         return False
     if 'models' in provider:
         return model in provider['models']
-    return model.startswith(provider['prefixes']) and not any(
+    return model in provider.get('exact_models', ()) or (model.startswith(provider['prefixes']) and not any(
         word in model.lower() for word in ('embedding', 'rerank', 'audio', 'tts', 'whisper'))
+    )
 
 
 def validate_config(config):
@@ -65,8 +75,7 @@ def list_models(provider_id, api_key):
     provider = validate_credentials(provider_id, api_key)
     if 'models' in provider:
         # shortcut: no documented API-Key-only discovery; update the public catalog when providers change it.
-        return {'models': list(provider['models']), 'source': 'catalog', 'updated': CATALOG_DATE,
-                'message': f'官方预置目录 · 更新于 {CATALOG_DATE}。不是账户可用列表，Key 和模型权限在生成时校验。'}
+        return {'models': list(provider['models']), 'source': 'catalog', 'updated': CATALOG_DATE}
     status, _, raw = safe_request(provider['base_url'] + provider['models_path'],
         headers={'Authorization': 'Bearer ' + api_key}, timeout=15)
     check_status(status)
@@ -78,9 +87,24 @@ def list_models(provider_id, api_key):
         for item in data:
             if not isinstance(item, dict) or not isinstance(item.get('id'), str):
                 raise RequestError('bad_response')
-            modalities = item.get('output_modalities', ['text'])
+            architecture = item.get('architecture', {})
+            if not isinstance(architecture, dict):
+                raise RequestError('bad_response')
+            modalities = item.get('output_modalities', architecture.get('output_modalities', ['text']))
             if not isinstance(modalities, list) or not all(isinstance(value, str) for value in modalities):
                 raise RequestError('bad_response')
+            if provider.get('model_owner') and item.get('owned_by') != provider['model_owner']:
+                continue
+            if provider.get('model_types') and item.get('type') not in provider['model_types']:
+                continue
+            if provider.get('model_endpoint'):
+                endpoints = item.get('endpoints')
+                if not isinstance(endpoints, list) or not all(isinstance(value, str) for value in endpoints):
+                    raise RequestError('bad_response')
+                if provider['model_endpoint'] not in endpoints:
+                    continue
+            if provider.get('online_only') and item.get('status') != 'online':
+                continue
             if (valid_model(provider, item['id']) and 'text' in modalities
                     and item['id'] not in models):
                 models.append(item['id'])
@@ -88,8 +112,7 @@ def list_models(provider_id, api_key):
         raise RequestError('bad_response') from None
     if not models:
         raise RequestError('no_models')
-    return {'models': models, 'source': 'live',
-            'message': '已从厂商实时获取文本模型列表；实际调用仍受账户权限、余额和服务状态限制。'}
+    return {'models': models, 'source': 'live'}
 
 
 def generate_json(prompt, config, *, timeout=REQUEST_TIMEOUT):

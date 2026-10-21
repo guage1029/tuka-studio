@@ -317,14 +317,6 @@
       ],
       "template_sha256": "32ea6f60eb08728e3adb10e4fe2ecd2e80d196907bfe767ac907b0be1da3a951"
     },
-    "ppt-y2k-chrome": {
-      "name": "千禧铬银",
-      "png_sha256": [
-        "ede0725281386b248bb1d6916b3d19db21aee3c1c6604742326bcf07353d37e7",
-        "687637e88afd7f16a5713d43d3e3a4dc1286391a4919f9864d856635326cc127"
-      ],
-      "template_sha256": "4ad9752432ad129a811cf47ffd7e10257fe6feba7cc77aa209918616f0a88f46"
-    },
     "ppt-japanese-minimal": {
       "name": "日式极简",
       "png_sha256": [

@@ -4,11 +4,13 @@ import asyncio
 import base64
 from collections import OrderedDict, deque
 from contextlib import contextmanager
+from functools import lru_cache
 import hashlib
 import hmac
 import io
 import os
 from pathlib import Path
+import re
 import secrets
 import sqlite3
 import threading
@@ -24,7 +26,6 @@ import ai_providers
 import main
 import metrics
 from safe_http import RequestError
-from sensitive_words import detect_sensitive_words
 
 
 class MemoryRequest(Request):
@@ -35,8 +36,13 @@ class MemoryRequest(Request):
 
 app = Flask(__name__)
 app.request_class = MemoryRequest
+trusted_hosts = ['tuka.guage.chat']
+if os.environ.get('TRUST_LOCAL_PROXY') != '1':
+    trusted_hosts.extend(('localhost', '127.0.0.1'))
 app.config.update(MAX_CONTENT_LENGTH=32 * 1024 * 1024,
-                  METRICS_DB=os.environ.get('METRICS_DB', str(metrics.DEFAULT_DB)))
+                  MAX_FORM_PARTS=4,
+                  METRICS_DB=os.environ.get('METRICS_DB', str(metrics.DEFAULT_DB)),
+                  TRUSTED_HOSTS=trusted_hosts)
 # Only enable behind the local reverse proxy described in DEPLOYMENT.md.
 if os.environ.get('TRUST_LOCAL_PROXY') == '1':
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -132,8 +138,42 @@ def payload(allowed, required=()):
     return data
 
 
+DARK_STYLES = {'tech', 'streaming', 'capsule', 'ppt-catppuccin-mocha', 'ppt-dracula',
+               'ppt-tokyo-night', 'ppt-nord', 'ppt-gruvbox-dark', 'ppt-rose-pine',
+               'ppt-glassmorphism', 'ppt-terminal-green', 'ppt-aurora', 'ppt-blueprint',
+               'ppt-cyberpunk-neon', 'ppt-vaporwave'}
+
+LEGACY_STYLE_PALETTES = {
+    'xiaohongshu': ('#ffffff', '#111111', '#ff4258', '#ffd1ff'),
+    'apple': ('#f5f5f7', '#1d1d1f', '#0071e3', '#6e6e73'),
+    'neobrutalist': ('#dfff00', '#000000', '#ff3131', '#0066ff'),
+    'chinese': ('#fdfbf7', '#3d2817', '#c04851', '#8fb2c9'),
+    'memphis': ('#ffffff', '#000000', '#ffd700', '#4ecdc4'),
+    'journal': ('#fdf8f3', '#5d4e37', '#ffb6c1', '#98d8c8'),
+    'magazine': ('#ffffff', '#000000', '#111111', '#888888'),
+    'polaroid': ('#fafafa', '#333333', '#dddddd', '#666666'),
+    'tech': ('#1a1a2e', '#ffffff', '#667eea', '#764ba2'),
+    'streaming': ('#0a0a0a', '#ffffff', '#6366f1', '#ec4899'),
+    'capsule': ('#1a1a1a', '#33ff00', '#33ff00', '#ffffff'),
+}
+
+
+@lru_cache(maxsize=None)
+def style_palette(style):
+    if style in LEGACY_STYLE_PALETTES:
+        values = LEGACY_STYLE_PALETTES[style]
+    else:
+        css = (main.ROOT / 'themes' / f'{style[4:]}.css').read_text()
+        values = tuple(re.search(rf'--{token}\s*:\s*(#[0-9a-fA-F]{{3,8}})', css).group(1)
+                       for token in ('bg', 'text-1', 'accent', 'accent-2'))
+    return dict(zip(('background', 'foreground', 'accent', 'accent_secondary'), values))
+
+
 def styles():
-    return [{'id': style, 'name': name} for style, name in main.STYLE_NAMES.items()]
+    # shortcut: unlisted styles default to light, classify them when adding a dark theme.
+    return [{'id': style, 'name': name, 'group': 'dark' if style in DARK_STYLES else 'light',
+             'palette': style_palette(style)}
+            for style, name in main.STYLE_NAMES.items()]
 
 
 @app.get('/')
@@ -243,7 +283,7 @@ def upload_image():
 def download_all():
     data = payload(('images',), ('images',))
     images = data['images']
-    if not isinstance(images, list) or not 1 <= len(images) <= 9:
+    if not isinstance(images, list) or not 1 <= len(images) <= main.MAX_CARDS:
         raise RequestError('bad_request')
     with slot(_HEAVY):
         output = io.BytesIO()
@@ -262,13 +302,6 @@ def download_all():
                 archive.writestr(f'card-{index + 1:02}.png', raw)
         output.seek(0)
     return send_file(output, mimetype='application/zip', as_attachment=True, download_name='tuka-cards.zip', max_age=0)
-
-
-@app.post('/check-sensitive')
-def check_sensitive():
-    data = payload(('content',), ('content',))
-    content = main.text_field(data['content'], 20000, True)
-    return jsonify(success=True, **detect_sensitive_words(content))
 
 
 if __name__ == '__main__':

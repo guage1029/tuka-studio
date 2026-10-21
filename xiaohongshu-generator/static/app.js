@@ -19,17 +19,17 @@
     $('status').textContent = message;
     $('status').dataset.kind = kind;
   }
-  function step(number) {
-    [1, 2, 3].forEach(n => $('step-' + n).classList.toggle('current', n === number));
-  }
   function changed() {
     revision++;
     if (images.length) {
       images = [];
       $('results').replaceChildren();
       $('results-section').hidden = true;
+      $('editor').hidden = false;
+      $('download-all').hidden = true;
+      $('edit-cards').hidden = true;
+      $('render').textContent = '⑤ 生成图卡';
       status('文案或样式已更改，确认后请重新渲染。');
-      step(2);
     }
   }
   function fieldError(input, id, message) {
@@ -51,23 +51,20 @@
     }
     return key && selected ? {provider: $('provider').value, api_key: key, model: selected} : null;
   }
-  function configHint() {
-    $('config-hint').textContent = config(false) ? '配置已就绪 · 仅内存' : '先选择模型 · 仅内存';
-  }
   function resetModels() {
     if (modelRequest) modelRequest.abort();
     modelRequest = null;
     modelsLoaded = false;
     $('model').replaceChildren(new Option('先输入 Key，再刷新模型列表', ''));
+    $('model').size = 1;
     $('model').disabled = true;
     $('refresh-models').disabled = Boolean(pending);
+    $('save-config').disabled = Boolean(pending);
     $('refresh-models').textContent = '刷新模型列表';
     $('generate').disabled = Boolean(pending);
-    const catalog = $('provider').selectedOptions[0].dataset.catalog === 'true';
-    $('provider-help').textContent = catalog ? '使用官方预置目录；Key 和模型权限在生成时校验。' : '使用国内服务，刷新时从厂商实时查询文本模型。';
-    $('model-status').textContent = '输入 Key 并刷新后，从列表选择模型。';
+    $('model-status').textContent = '';
+    $('model-selection').textContent = '';
     fieldError($('model'), 'model-error', '');
-    configHint();
   }
   $('refresh-models').addEventListener('click', async () => {
     const apiKey = validKey();
@@ -76,6 +73,7 @@
     modelRequest = controller;
     const timer = setTimeout(() => controller.abort(), 20000);
     $('refresh-models').disabled = true;
+    $('save-config').disabled = true;
     $('refresh-models').textContent = '正在获取……';
     $('generate').disabled = true;
     $('model-status').textContent = '正在获取模型列表……';
@@ -85,12 +83,13 @@
       const result = await requestJSON('/api/models', {provider: $('provider').value, api_key: apiKey}, controller.signal);
       if (modelRequest !== controller) return;
       $('model').replaceChildren(new Option('请选择一个模型', ''), ...result.models.map(id => new Option(id, id)));
+      $('model').size = 1;
       $('model').disabled = false;
       if (result.models.includes(previous)) $('model').value = previous;
       modelsLoaded = true;
-      $('model-status').textContent = result.message;
+      $('model-selection').textContent = $('model').value ? `已选择：${$('model').value}` : '';
+      $('model-status').textContent = result.message || '';
       revision++;
-      configHint();
       if (!previous) $('model').focus();
     } catch (error) {
       if (modelRequest === controller) {
@@ -103,6 +102,7 @@
       if (modelRequest === controller) {
         modelRequest = null;
         $('refresh-models').disabled = Boolean(pending);
+        $('save-config').disabled = Boolean(pending);
         $('refresh-models').textContent = '刷新模型列表';
         $('generate').disabled = Boolean(pending);
       }
@@ -116,6 +116,7 @@
   function busy(value) {
     $('generate').disabled = value || Boolean(modelRequest);
     $('refresh-models').disabled = value || Boolean(modelRequest);
+    $('save-config').disabled = value || Boolean(modelRequest);
     $('render').disabled = value;
     $('download-all').disabled = value;
     document.querySelectorAll('[data-regenerate]').forEach(button => { button.disabled = value; });
@@ -169,9 +170,45 @@
     resetModels();
   });
   $('api-key').addEventListener('input', () => { revision++; resetModels(); fieldError($('api-key'), 'key-error', ''); });
-  $('model').addEventListener('change', () => { revision++; fieldError($('model'), 'model-error', ''); configHint(); });
+  $('model').addEventListener('change', () => {
+    revision++;
+    fieldError($('model'), 'model-error', '');
+    $('model-selection').textContent = $('model').value ? `已选择：${$('model').value}` : '';
+  });
+  let openingModelMenu = false;
+  $('model').addEventListener('mousedown', event => {
+    openingModelMenu = $('model').size === 1;
+    if (openingModelMenu && !$('model').disabled) {
+      event.preventDefault();
+      $('model').size = $('model').options.length;
+      $('model').focus();
+    }
+  });
+  $('model').addEventListener('click', () => {
+    if (!openingModelMenu && $('model').value) $('model').size = 1;
+    openingModelMenu = false;
+  });
+  $('model').addEventListener('keydown', event => {
+    if (['Enter', ' '].includes(event.key) || ($('model').size === 1 && ['ArrowDown', 'ArrowUp'].includes(event.key))) {
+      event.preventDefault();
+      $('model').size = $('model').size === 1 ? $('model').options.length : 1;
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      $('model').size = 1;
+    }
+  });
+  $('model').addEventListener('blur', () => { $('model').size = 1; });
   resetModels();
-  $('config-form').addEventListener('submit', e => e.preventDefault());
+  $('config-form').addEventListener('submit', event => {
+    event.preventDefault();
+    if (!config()) return;
+    $('api-key').type = 'password';
+    $('toggle-key').setAttribute('aria-label', '显示 Key');
+    $('toggle-key').setAttribute('aria-pressed', 'false');
+    $('model').size = 1;
+    $('model-config').open = false;
+    $('model-config').querySelector('summary').focus();
+  });
   $('toggle-key').addEventListener('click', () => {
     const show = $('api-key').type === 'password';
     $('api-key').type = show ? 'text' : 'password';
@@ -186,12 +223,12 @@
     const validContent = validateContent();
     const settings = config();
     if (!validContent || !settings) { if (!validContent && settings) content.focus(); return; }
+    $('model-config').open = false;
     const body = {content: content.value, config: settings, style: style.value};
-    task('正在整理文案，通常需要几十秒。期间仍可编辑；修改后将忽略旧响应。',
+    task('正在整理文案，通常需要几秒。',
       signal => requestJSON('/preview', body, signal), result => {
         slides = result.slides_data;
         changed();
-        $('model-config').open = false;
         showEditor();
         let message = '文案已整理。请检查事实、标题和要点，确认后渲染图片。';
         const selection = result.image_summary;
@@ -200,18 +237,39 @@
           if (selection.failed) message += `其中 ${selection.failed} 张选中图片无法安全获取，已跳过，可在编辑区补图。`;
         }
         status(message);
-        step(2);
       });
   });
   style.addEventListener('change', () => {
     const hadImages = images.length > 0;
     changed();
-    $('style-thumb').src = '/static/samples/' + style.value + '.webp';
+    document.querySelectorAll('input[name="style-choice"]').forEach(option => {
+      option.checked = option.value === style.value;
+      option.closest('.style-option').classList.toggle('is-selected', option.checked);
+    });
     Tuka.event('template_select', style.value);
     if (hadImages && !pending) render();
   });
-  $('view-style').addEventListener('click', () => Tuka.sample(style.value, style.selectedOptions[0].textContent));
-
+  document.querySelectorAll('input[name="style-choice"]').forEach(option => option.addEventListener('change', () => {
+    if (!option.checked) return;
+    style.value = option.value;
+    style.dispatchEvent(new Event('change', {bubbles: true}));
+  }));
+  function placeStylePreview(event) {
+    const image = event.currentTarget.querySelector('.style-preview img');
+    if (!image.hasAttribute('src')) image.src = image.dataset.src;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const width = Math.min(190, window.innerWidth - 32);
+    const height = width * (1660 / 1242) + 42;
+    const rightSpace = window.innerWidth - rect.right;
+    const left = rightSpace > width + 16 ? rect.right + 8 : rect.left > width + 16 ? rect.left - width - 8 : Math.max(16, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 16));
+    const top = Math.max(16, Math.min(rect.top + rect.height / 2 - height / 2, window.innerHeight - height - 16));
+    event.currentTarget.style.setProperty('--preview-left', left + 'px');
+    event.currentTarget.style.setProperty('--preview-top', top + 'px');
+  }
+  document.querySelectorAll('.style-option').forEach(option => {
+    option.addEventListener('pointerenter', placeStylePreview);
+    option.addEventListener('focusin', placeStylePreview);
+  });
   function node(tag, className, text) {
     const element = document.createElement(tag);
     if (className) element.className = className;
@@ -222,35 +280,43 @@
     const element = node('button', className, text); element.type = 'button'; element.addEventListener('click', action); return element;
   }
   function field(parent, labelText, value, max, apply, multiline = false) {
-    const label = node('label', '', labelText);
+    const label = node('label', 'card-field');
+    const caption = node('span', 'visually-hidden', labelText);
     const input = node(multiline ? 'textarea' : 'input');
     if (!multiline) input.type = 'text'; else input.rows = 2;
-    input.value = value; input.maxLength = max;
+    input.value = value; input.maxLength = max; input.placeholder = labelText.split(' · ')[0];
     input.addEventListener('input', () => { apply(input.value); changed(); });
-    label.append(input); parent.append(label); return input;
+    label.append(caption, input); parent.append(label); return input;
   }
   function showEditor() {
     $('empty-state').hidden = true;
     $('editor').hidden = false;
+    $('results-section').hidden = true;
+    $('edit-cards').hidden = true;
+    $('download-all').hidden = true;
+    $('render').textContent = '⑤ 生成图卡';
     $('render-actions').hidden = false;
-    $('output-eyebrow').textContent = 'MAKE IT YOURS';
-    $('output-title').textContent = '好表达，最后由你确认。';
     $('output-count').textContent = (slides.slides.length + 1) + ' 张图卡';
+    $('output-count').hidden = false;
+    $('card-stage').style.setProperty('--card-rows', Math.ceil((slides.slides.length + 1) / 4));
     $('editor').replaceChildren();
     [slides, ...slides.slides].forEach((card, index) => {
       const article = node('article', 'edit-card');
+      article.style.setProperty('--card-order', index);
+      article.setAttribute('aria-label', index ? '编辑内容页 ' + index : '编辑封面');
       const heading = node('div', 'edit-card-heading');
       heading.append(node('h3', '', index ? '内容页 ' + String(index).padStart(2, '0') : '封面'));
       const regenerate = button('重新生成此页', 'plain-button', () => regenerateCard(index));
       regenerate.dataset.regenerate = String(index); regenerate.disabled = Boolean(pending);
       heading.append(regenerate); article.append(heading);
+      const copy = node('div', 'card-copy'); article.append(copy);
       if (!index) {
-        field(article, '封面标题 · 最多 24 字', slides.cover_title, 24, value => { slides.cover_title = value; });
-        field(article, '副标题 · 最多 80 字', slides.cover_subtitle, 80, value => { slides.cover_subtitle = value; }, true);
-        field(article, '标签 · 用逗号分隔，最多 5 个，每个 10 字', slides.cover_tags.join('，'), 60, value => { slides.cover_tags = value.split(/[,，]/).map(tag => tag.trim()).filter(Boolean); });
+        field(copy, '封面标题 · 最多 24 字', slides.cover_title, 24, value => { slides.cover_title = value; }, true).className = 'card-title';
+        field(copy, '副标题 · 最多 80 字', slides.cover_subtitle, 80, value => { slides.cover_subtitle = value; }, true).className = 'card-subtitle';
+        field(copy, '标签 · 用逗号分隔，最多 5 个，每个 10 字', slides.cover_tags.join('，'), 60, value => { slides.cover_tags = value.split(/[,，]/).map(tag => tag.trim()).filter(Boolean); }).className = 'card-tags';
       } else {
-        field(article, '标题 · 最多 24 字', card.title, 24, value => { card.title = value; });
-        const points = node('div'); article.append(points);
+        field(copy, '标题 · 最多 24 字', card.title, 24, value => { card.title = value; }, true).className = 'card-title';
+        const points = node('div', 'card-points'); copy.append(points);
         function drawPoints() {
           points.replaceChildren();
           card.content.forEach((point, pointIndex) => {
@@ -268,18 +334,23 @@
           points.lastElementChild.querySelector('textarea').focus();
         });
         add.disabled = card.content.length >= 5;
-        drawPoints(); article.append(add);
+        drawPoints(); copy.append(add);
       }
       const imageKey = index ? 'image' : 'cover_image';
-      const imageEditor = node('div', 'image-editor');
+      const imageEditor = node('details', 'image-editor');
       imageEditor.tabIndex = 0; imageEditor.setAttribute('aria-label', (index ? '内容页 ' + index : '封面') + '配图区域，可上传、拖放或粘贴图片');
+      const imageSummary = node('summary', 'image-summary');
+      if (card[imageKey]) {
+        const img = node('img'); img.src = card[imageKey]; img.alt = '当前配图'; imageSummary.append(img);
+      }
+      imageSummary.append(node('span', '', card[imageKey] ? '替换配图' : '+ 添加配图'));
+      imageEditor.append(imageSummary);
       const fileLabel = node('label', '', '配图（可选）');
       const input = node('input'); input.type = 'file'; input.accept = 'image/png,image/jpeg,image/webp';
       fileLabel.append(input); imageEditor.append(fileLabel);
-      const help = node('p', 'field-help', 'PNG / JPEG / WebP，≤2 MiB。可拖放或在此粘贴；模板会按布局裁切。');
+      const help = node('p', 'field-help', 'PNG / JPEG / WebP · ≤2 MiB，可拖放或粘贴。');
       imageEditor.append(help);
       if (card[imageKey]) {
-        const img = node('img'); img.src = card[imageKey]; img.alt = '当前配图'; imageEditor.append(img);
         imageEditor.append(button('移除配图', 'plain-button', () => { card[imageKey] = null; changed(); showEditor(); }));
       }
       input.addEventListener('change', () => uploadImage(input.files[0], index));
@@ -292,6 +363,7 @@
   }
   function validSlides() {
     if (!slides) return false;
+    if (slides.slides.length > 7) { status('最多生成 8 张卡片（含封面）。', 'error'); return false; }
     if (!slides.cover_title.trim() || slides.cover_tags.length > 5 || slides.cover_tags.some(tag => tag.length > 10) ||
         slides.slides.some(card => !card.title.trim() || !card.content.length || card.content.some(point => !point.trim()))) {
       status('请补全标题和要点；标签最多 5 个，每个最多 10 字。', 'error'); return false;
@@ -304,7 +376,7 @@
     const body = {slides_data: slides, slide_index: index, config: settings, style: style.value};
     task('正在重新整理这一页；期间修改内容后将忽略旧响应。',
       signal => requestJSON('/regenerate-slide', body, signal), result => {
-        slides = result.slides_data; changed(); showEditor(); step(2); status('这一页已更新，原有配图已保留。');
+        slides = result.slides_data; changed(); showEditor(); status('这一页已更新，原有配图已保留。');
       });
   }
   function uploadImage(file, index) {
@@ -326,21 +398,33 @@
     const target = document.activeElement?.closest('.image-editor');
     if (file && slides && target && lastImageEditor !== null) { e.preventDefault(); uploadImage(file, lastImageEditor); }
   });
-  function render() {
-    if (!validSlides()) return;
+  async function render() {
+    if (pending || !validSlides()) return;
     const body = {slides_data: slides, style: style.value};
-    task('正在渲染图片；这一步不调用模型。', signal => requestJSON('/render', body, signal), result => {
-      images = result.images; showResults(); step(3); status('图卡已就绪，可以单张下载或整组打包。');
-    });
+    $('card-stage').classList.add('is-rendering');
+    $('card-stage').setAttribute('aria-busy', 'true');
+    try {
+      await task('正在为卡片施加样式……', signal => requestJSON('/render', body, signal), result => {
+        images = result.images; showResults(); status('图卡已就绪，可以单张下载或整组打包。');
+      });
+    } finally {
+      $('card-stage').classList.remove('is-rendering');
+      $('card-stage').setAttribute('aria-busy', 'false');
+    }
   }
   $('render').addEventListener('click', render);
   function showResults() {
+    $('editor').hidden = true;
+    $('edit-cards').hidden = false; $('edit-cards').textContent = '编辑文案';
+    $('download-all').hidden = false;
+    $('render').textContent = '⑤ 重新生成图卡';
     $('results-section').hidden = false; $('results').replaceChildren();
     images.forEach((image, index) => {
       const article = node('article', 'result-card');
+      article.style.setProperty('--card-order', index);
       const enlarge = button('', 'sample-button', () => Tuka.showImages('图卡 ' + (index + 1), [image.data]));
       enlarge.setAttribute('aria-label', '放大图卡 ' + (index + 1));
-      const img = node('img'); img.src = image.data; img.alt = '生成图卡 ' + (index + 1); img.width = 1242; img.height = 1660; img.loading = 'lazy';
+      const img = node('img'); img.src = image.data; img.alt = '生成图卡 ' + (index + 1); img.width = 1242; img.height = 1660;
       enlarge.append(img); article.append(enlarge);
       const link = node('a', '', '下载第 ' + String(index + 1).padStart(2, '0') + ' 张 PNG');
       link.href = image.data; link.download = image.filename;
@@ -348,6 +432,12 @@
       article.append(link); $('results').append(article);
     });
   }
+  $('edit-cards').addEventListener('click', () => {
+    const editing = $('editor').hidden;
+    $('editor').hidden = !editing;
+    $('results-section').hidden = editing;
+    $('edit-cards').textContent = editing ? '查看成品' : '编辑文案';
+  });
   $('download-all').addEventListener('click', () => {
     if (!images.length || pending) return;
     Tuka.event('download_click', style.value);
@@ -360,14 +450,6 @@
       const url = URL.createObjectURL(blob); const link = node('a'); link.href = url; link.download = 'tuka-cards.zip';
       document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
       status('已发起 ZIP 下载，请在浏览器中确认保存。');
-    });
-  });
-  $('check-sensitive').addEventListener('click', () => {
-    if (!content.value.trim() || pending) return;
-    const text = content.value;
-    task('正在检查敏感词……', signal => requestJSON('/check-sensitive', {content: text}, signal), result => {
-      $('sensitive-result').textContent = result.has_sensitive ? '发现 ' + result.total_count + ' 个词条：' + result.details.map(item => item.word).join('、') + '。请结合语境检查。' : '未命中现有词库；这不代表平台合规判断。';
-      status('词库检查已完成。');
     });
   });
 })();

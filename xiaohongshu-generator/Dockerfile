@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && python -m playwright install --with-deps chromium \
     && useradd --uid 10001 --create-home tuka \
     && mkdir /data && chown tuka:tuka /data
-COPY app.py main.py ai_providers.py safe_http.py metrics.py sensitive_words.py ./
+COPY app.py main.py ai_providers.py safe_http.py metrics.py ./
 COPY template*.html ./
 COPY templates/ ./templates/
 COPY static/ ./static/

@@ -26,6 +26,8 @@ docker compose exec tuka python metrics.py --db /data/metrics.sqlite3
 
 代理覆盖 X-Forwarded-For/Proto；容器以 `TRUST_LOCAL_PROXY=1` 信任这一层。必须阻止绕过代理的外部请求，否则可伪造转发地址绕过进程内限频。边缘限频不持久保存 IP，仅用 nginx 内存 zone；后端只用随机盐摘要、约 60 秒保留，统计无 IP/身份字段。
 
+生产容器仅接受 `tuka.guage.chat` 作为 Host；本地开发且未启用 `TRUST_LOCAL_PROXY` 时额外接受 `localhost` 与 `127.0.0.1`。更换生产域名时，需同步更新 `app.py` 的 `TRUSTED_HOSTS` 与本配置的 `server_name`。Dockerfile 只复制明确列出的应用文件，勿将本地配置、密钥或输出目录加入镜像。
+
 外部模型/图片请求只允许公网 HTTPS 443，解析全部地址，拒绝内网/元数据/映射地址，实际 socket 固定到校验 IP，TLS 校验原主机名，不用环境代理、不跟重定向。生产还应通过网络策略阻断内网和元数据出口，作为容器外的防线；不承诺抵御服务器自身被攻破。
 
 ## 上线前门禁
@@ -39,6 +41,6 @@ docker compose exec tuka python metrics.py --db /data/metrics.sqlite3
 
 ## 国产厂商出口
 
-第一期只向五家固定国内接口发送模型凭据：`api.deepseek.com`、`api.minimax.cn`、`api.moonshot.cn`、`open.bigmodel.cn`、`ark.cn-beijing.volces.com`，均为 HTTPS 443。无需访问 OpenAI/Anthropic 海外 API；两者仅是兼容协议名称。`POST /api/models` 与生成接口采用相同写入限频。部署时应逐个验证本机 DNS、TLS、网络连通和专用 Key；不能据官方文档或本地离线测试声称生产网络已通。用户 Markdown 配图仍可能指向其他公网 HTTPS 服务，不携带模型 Key，受同样 SSRF 和超时限制。
+服务向八家固定国内接口发送模型凭据：`api.deepseek.com`、`api.minimax.cn`、`api.moonshot.cn`、`open.bigmodel.cn`、`ark.cn-beijing.volces.com`、`dashscope.aliyuncs.com`、`qianfan.baidubce.com`、`tokenhub.tencentmaas.com`，均为 HTTPS 443。无需访问 OpenAI/Anthropic 海外 API；两者仅是兼容协议名称。`POST /api/models` 与生成接口采用相同写入限频。部署时应逐个验证本机 DNS、TLS、网络连通和专用 Key；不能据官方文档或本地离线测试声称生产网络已通。用户 Markdown 配图仍可能指向其他公网 HTTPS 服务，不携带模型 Key，受同样 SSRF 和超时限制。
 
 模型清单、接口差异和标准按量 Key 范围见 [PROVIDERS.md](PROVIDERS.md)。

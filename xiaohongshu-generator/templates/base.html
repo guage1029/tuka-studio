@@ -3,20 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="自带模型 API，把长文整理成可编辑、可下载的图卡。46 款真实模板，无需注册。">
+  <meta name="description" content="自带模型 API，把长文整理成可编辑、可下载的图卡。{{ styles|length }} 款真实模板，无需注册。">
   <title>{% block title %}图卡 · 让内容有形{% endblock %}</title>
-  <link rel="icon" href="{{ url_for('static', filename='mark.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ url_for('static', filename='mark.svg', v='2') }}" type="image/svg+xml">
   <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
   {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main">跳到主要内容</a>
+{% block header %}
 <header class="site-header shell">
-  <a class="brand" href="/" aria-label="图卡首页"><img src="/static/mark.svg" width="32" height="32" alt=""><span>图卡<span class="brand-en">TUKA</span></span></a>
+  <a class="brand" href="/" aria-label="TUKA 图卡工作台首页"><img src="/static/mark.svg?v=2" width="32" height="32" alt=""><span class="brand-copy"><span class="brand-title">TUKA · 图卡工作台</span><span class="brand-slogan">让内容有形，让表达更轻。</span></span></a>
   <nav aria-label="主导航">{% block nav %}<a href="#gallery">模板画廊</a><a class="nav-help" href="#how">使用说明</a><a class="button small dark" href="/app">打开工作台 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>{% endblock %}</nav>
 </header>
+{% endblock %}
 {% block content %}{% endblock %}
-<footer class="site-footer shell"><a class="brand footer-brand" href="/">图卡 <span class="brand-en">TUKA</span></a><span>让内容有形，让表达更轻。</span><a href="/#privacy">模型与隐私</a></footer>
+{% block footer %}
+<footer class="site-footer shell"><span>来自 AI 编程瓜哥</span></footer>
+{% endblock %}
 <dialog id="image-dialog" class="image-dialog" aria-labelledby="dialog-title">
   <div class="dialog-bar"><h2 id="dialog-title">图卡预览</h2><button id="close-dialog" class="icon-button" aria-label="关闭预览"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></div>
   <div id="dialog-images" class="dialog-images"></div>

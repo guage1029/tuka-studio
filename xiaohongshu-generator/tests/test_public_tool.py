@@ -50,12 +50,17 @@ class ProtocolTests(unittest.TestCase):
             'kimi': ('openai', 'https://api.moonshot.cn/v1/chat/completions'),
             'zhipu': ('openai', 'https://open.bigmodel.cn/api/paas/v4/chat/completions'),
             'doubao': ('openai', 'https://ark.cn-beijing.volces.com/api/v3/chat/completions'),
+            'qwen': ('openai', 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'),
+            'qianfan': ('openai', 'https://qianfan.baidubce.com/v2/chat/completions'),
+            'hunyuan': ('openai', 'https://tokenhub.tencentmaas.com/v1/chat/completions'),
         }
         self.assertEqual(set(ai_providers.PROVIDERS), set(expected))
         for provider_id, provider in ai_providers.PROVIDERS.items():
             protocol, endpoint = expected[provider_id]
             self.assertEqual(provider['protocol'], protocol)
-            model = provider['models'][0] if 'models' in provider else ('kimi-k3' if provider_id == 'kimi' else 'deepseek-flash')
+            model = provider['models'][0] if 'models' in provider else {
+                'kimi': 'kimi-k3', 'qianfan': 'ernie-5.1', 'hunyuan': 'hy3'
+            }.get(provider_id, 'deepseek-flash')
             with self.subTest(provider=provider_id):
                 config = {**CONFIG, 'provider': provider_id, 'model': model}
                 raw = json.dumps(self.response(protocol, json.dumps(SAMPLE))).encode()
@@ -134,6 +139,39 @@ class ProtocolTests(unittest.TestCase):
             self.assertNotIn('body', transport.call_args.kwargs)
             self.assertEqual(transport.call_args.kwargs['headers'], {'Authorization': 'Bearer key-only-this-request'})
 
+    def test_qianfan_and_hunyuan_model_lists_filter_to_online_first_party_text_models(self):
+        cases = [
+            ('qianfan', [
+                {'id': 'ernie-5.1', 'owned_by': 'Baidu', 'type': 'chat', 'endpoints': ['/v2/chat/completions']},
+                {'id': 'ernie-5.0', 'owned_by': 'Baidu', 'type': 'multimodal',
+                 'architecture': {'output_modalities': ['text']}, 'endpoints': ['/v2/chat/completions']},
+                {'id': 'ernie-image', 'owned_by': 'Baidu', 'type': 'text2image', 'endpoints': ['/v2/images']},
+                {'id': 'deepseek-v4', 'owned_by': 'DeepSeek', 'type': 'chat', 'endpoints': ['/v2/chat/completions']},
+            ], ['ernie-5.1', 'ernie-5.0'], 'https://qianfan.baidubce.com/v2/models'),
+            ('hunyuan', [
+                {'id': 'hy3', 'status': 'online'}, {'id': 'hy4', 'status': 'offline'},
+                {'id': 'hunyuan-role-latest', 'status': 'online'},
+                {'id': 'hy-image-v3', 'status': 'online'}, {'id': 'qwen3.5-plus', 'status': 'online'},
+            ], ['hy3', 'hunyuan-role-latest'], 'https://tokenhub.tencentmaas.com/v1/models'),
+        ]
+        for provider, rows, expected, endpoint in cases:
+            with self.subTest(provider=provider), patch('ai_providers.safe_request', return_value=(200, '', json.dumps({'data': rows}).encode())) as transport:
+                result = ai_providers.list_models(provider, 'key')
+            self.assertEqual(result['models'], expected)
+            self.assertEqual(result['source'], 'live')
+            self.assertEqual(transport.call_args.args[0], endpoint)
+
+    def test_qwen_catalog_models_use_real_fixed_generation_endpoint(self):
+        provider = ai_providers.PROVIDERS['qwen']
+        self.assertEqual(provider['protocol'], 'openai')
+        self.assertIn('qwen3.8-max', provider['models'])
+        with patch('ai_providers.safe_request', return_value=(200, '', json.dumps(
+                self.response('openai', json.dumps(SAMPLE))).encode())) as transport:
+            self.assertEqual(ai_providers.generate_json('test', {
+                'provider': 'qwen', 'api_key': 'test-key', 'model': 'qwen3.8-max'
+            }), SAMPLE)
+        self.assertEqual(transport.call_args.args[0], 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions')
+
     def test_model_list_errors_are_fixed_and_no_fake_fallback(self):
         cases = [(401, b'{"secret":"hidden"}', 'auth_failed'), (429, b'', 'rate_limited'),
                  (200, b'{', 'bad_response'), (200, b'{"data":{}}', 'bad_response'),
@@ -149,10 +187,10 @@ class ProtocolTests(unittest.TestCase):
 
     def test_catalog_explicitly_does_not_verify_key_or_account_access(self):
         with patch('ai_providers.safe_request', side_effect=AssertionError('No inference or paid key probe')):
-            for provider_id in ('minimax', 'zhipu', 'doubao'):
+            for provider_id in ('minimax', 'zhipu', 'doubao', 'qwen'):
                 result = ai_providers.list_models(provider_id, 'not-a-real-key')
                 self.assertEqual(result['source'], 'catalog'); self.assertTrue(result['models'])
-                self.assertIn('不是账户可用列表', result['message']); self.assertIn('生成时校验', result['message'])
+                self.assertEqual(set(result), {'models', 'source', 'updated'})
                 self.assertEqual(result['updated'], '2026-10-21')
                 self.assertNotIn('not-a-real-key', json.dumps(result))
                 for model in result['models']:
@@ -251,6 +289,26 @@ class ContentTests(unittest.TestCase):
             with self.assertRaises(RequestError) as caught: main.summarize_to_slides('测试正文。', CONFIG)
         self.assertEqual(caught.exception.code, 'auth_failed'); transport.assert_called_once()
 
+    def test_long_point_retries_with_exact_location_and_previous_output(self):
+        invalid = copy.deepcopy(SAMPLE)
+        invalid['slides'] = [copy.deepcopy(SAMPLE['slides'][0]) for _ in range(5)]
+        invalid['slides'][4]['content'] = ['要点' * 26]
+        corrected = copy.deepcopy(invalid)
+        corrected['slides'][4]['content'] = ['要点' * 20]
+        with patch('ai_providers.generate_json', side_effect=[invalid, corrected]) as generate:
+            result = main.summarize_to_slides('测试正文。', CONFIG)
+        self.assertEqual(result['slides'][4]['content'], corrected['slides'][4]['content'])
+        self.assertEqual(generate.call_count, 2)
+        retry_prompt = generate.call_args_list[1].args[0]
+        self.assertIn('第5页第1条要点为52字', retry_prompt)
+        self.assertIn('只修复不合规字段', retry_prompt)
+        self.assertIn(json.dumps(invalid, ensure_ascii=False, separators=(',', ':')), retry_prompt)
+
+    def test_removed_theme_is_not_a_selectable_or_renderable_style(self):
+        self.assertNotIn('ppt-y2k-chrome', main.STYLE_NAMES)
+        with self.assertRaises(RequestError):
+            main.validate_style('ppt-y2k-chrome')
+
     def test_regeneration_repairs_fields_without_changing_other_cards_or_images(self):
         sample = copy.deepcopy(SAMPLE); sample['cover_image'] = data_url(bitmap())
         rewritten = {'title': '改写后的标题', 'content': ['保留事实的要点']}
@@ -298,7 +356,8 @@ class ContentTests(unittest.TestCase):
         def choose(prompt, config, **kwargs):
             self.assertIn('【配图18：主题18示意图】', prompt)
             self.assertIn('第18个主题的正文说明', prompt)
-            self.assertIn('最多9张', prompt)
+            self.assertIn('最多8张', prompt)
+            self.assertIn('1–7个内容页', prompt)
             return sample
         with patch('ai_providers.generate_json', side_effect=choose), patch('main.normalize_image', return_value=data_url(bitmap())) as fetch:
             result = main.summarize_to_slides(content, CONFIG)
@@ -329,14 +388,14 @@ class ContentTests(unittest.TestCase):
         connect.assert_not_called(); self.assertIsNone(result['cover_image'])
         self.assertEqual(result['image_summary']['failed'], 1)
 
-    def test_output_stays_within_nine_cards_and_repeated_selection_fetches_once(self):
+    def test_output_stays_within_eight_cards_and_repeated_selection_fetches_once(self):
         sample = copy.deepcopy(SAMPLE); sample['cover_image'] = 1
-        sample['slides'] = [dict(title=f'主题{i}', content=['核心观点'], image=1) for i in range(8)]
+        sample['slides'] = [dict(title=f'主题{i}', content=['核心观点'], image=1) for i in range(7)]
         with patch('ai_providers.generate_json', return_value=sample), patch('main.normalize_image', return_value=data_url(bitmap())) as fetch:
             result = main.summarize_to_slides('![相关配图](https://image.example/a.png)', CONFIG)
-        self.assertEqual(len(result['slides']) + 1, 9); fetch.assert_called_once()
+        self.assertEqual(len(result['slides']) + 1, 8); fetch.assert_called_once()
         self.assertEqual(result['image_summary']['used'], 1)
-        sample['slides'].append(dict(title='第十张', content=['超量'], image=1))
+        sample['slides'].append(dict(title='第九张', content=['超量'], image=1))
         with patch('ai_providers.generate_json', return_value=sample), patch('main.normalize_image') as fetch:
             with self.assertRaises(RequestError): main.summarize_to_slides('![配图](https://image.example/a.png)', CONFIG)
         fetch.assert_not_called()
@@ -353,7 +412,10 @@ class ContentTests(unittest.TestCase):
             self.assertTrue(result['cover_image'].startswith('data:image/png;base64,'))
 
     def test_all_templates_independent(self):
-        self.assertEqual(len(main.TEMPLATES), 46)
+        self.assertEqual(len(main.TEMPLATES), 37)
+        self.assertFalse({'ins', 'ppt-minimal-white', 'ppt-editorial-serif', 'ppt-swiss-grid',
+                          'ppt-xiaohongshu-white', 'ppt-japanese-minimal', 'notion',
+                          'ppt-magazine-bold'} & main.TEMPLATES.keys())
         for style, filename in main.TEMPLATES.items():
             text = (main.ROOT / filename).read_text()
             self.assertNotIn('{% extends', text); self.assertNotIn('{% include', text)
@@ -379,7 +441,21 @@ class AppTests(unittest.TestCase):
         self.assertIn("script-src 'self'", response.headers['Content-Security-Policy'])
         self.assertEqual(self.client.get('/app?style=chinese').status_code, 200)
         self.assertEqual(self.client.get('/app?style=../../config').status_code, 400)
+        for style in ('ins', 'ppt-minimal-white', 'ppt-editorial-serif', 'ppt-swiss-grid',
+                      'ppt-xiaohongshu-white', 'ppt-japanese-minimal', 'notion',
+                      'ppt-magazine-bold'):
+            self.assertEqual(self.client.get(f'/app?style={style}').status_code, 400)
         self.assertEqual(self.client.post('/api/events', json={'event': 'sample_view', 'style': 'apple'}, headers={'Origin': 'https://evil.example'}).status_code, 403)
+
+    def test_untrusted_host_header_is_rejected(self):
+        self.assertEqual(self.client.get('/', headers={'Host': 'attacker.example'}).status_code, 400)
+        self.assertEqual(self.client.get('/', headers={'Host': 'tuka.guage.chat'}).status_code, 200)
+
+    def test_multipart_part_count_is_bounded(self):
+        data = {f'field-{index}': 'x' for index in range(4)}
+        data['file'] = (io.BytesIO(bitmap()), 'image.png')
+        response = self.client.post('/upload-image', data=data)
+        self.assertEqual(response.status_code, 413)
 
     def test_model_discovery_endpoint_is_private_bounded_and_not_generation(self):
         with patch('ai_providers.safe_request', return_value=(200, '', b'{"data":[{"id":"deepseek-flash"}]}')):
@@ -470,6 +546,19 @@ class AppTests(unittest.TestCase):
             self.assertEqual(archive.namelist(), ['card-01.png']); self.assertEqual(archive.read('card-01.png'), raw)
         self.assertEqual(self.post('/download-all', {'images': [data_url(bitmap())]}).status_code, 400)
         self.assertEqual(self.post('/download-all', {'images': []}).status_code, 400)
+        response = self.post('/download-all', {'images': [data_url(raw)] * 8})
+        self.assertEqual(response.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
+            self.assertEqual(len(archive.namelist()), 8)
+        self.assertEqual(self.post('/download-all', {'images': [data_url(raw)] * 9}).status_code, 400)
+
+    def test_ninth_card_is_rejected_before_rendering(self):
+        sample = copy.deepcopy(SAMPLE)
+        sample['slides'] *= 8
+        with patch('main.capture_slides') as capture:
+            response = self.post('/render', {'slides_data': sample, 'style': 'apple'})
+        self.assertEqual(response.status_code, 400)
+        capture.assert_not_called()
 
     def test_concurrency_gate_and_cleanup(self):
         service._RENDER.acquire()

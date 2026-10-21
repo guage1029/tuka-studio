@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render all 46 templates and inspect long text/image layout in Chromium."""
+"""Render all registered templates and inspect long text/image layout in Chromium."""
 import asyncio
 import base64
 import copy
@@ -103,7 +103,7 @@ async def verify():
     (artifacts / 'render-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2))
     assert not blocked, blocked
     assert not overflows, json.dumps(overflows, ensure_ascii=False)
-    print('All 46 templates: independent render, exact samples, bounded edge layout, zero external requests.')
+    print(f'All {len(STYLE_NAMES)} templates: independent render, exact samples, bounded edge layout, zero external requests.')
 
 
 if __name__ == '__main__': asyncio.run(verify())

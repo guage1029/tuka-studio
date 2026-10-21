@@ -15,7 +15,7 @@
       button.textContent = '收起更多样式 −';
     } else {
       [...grid.children].slice(12).forEach(node => node.remove());
-      button.textContent = '查看全部 46 款样式 ＋';
+      button.textContent = `查看全部 ${button.dataset.total} 款样式 ＋`;
     }
     button.setAttribute('aria-expanded', String(!expanded));
   });

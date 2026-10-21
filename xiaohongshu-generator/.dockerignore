@@ -6,7 +6,6 @@
 !ai_providers.py
 !safe_http.py
 !metrics.py
-!sensitive_words.py
 !template*.html
 !templates/
 !templates/**
