@@ -13,7 +13,7 @@
         }
 
         body {
-            font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'PingFang SC', sans-serif;
+            font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'PingFang SC', 'Noto Sans SC', sans-serif;
             background: #F5F5F7;
             padding: 40px;
             display: flex;
@@ -44,18 +44,21 @@
         .cover-title {
             font-size: 130px;
             font-weight: 600;
-            line-height: 1.1;
+            line-height: 1.18;
             margin-bottom: 40px;
             color: #1d1d1f;
-            letter-spacing: -3px;
+            /* 120px ≈ 40pt，落入 SF Pro 字距表 24pt–80pt 区间（约 +16/1000em） */
+            letter-spacing: 0.016em;
             text-align: center;
         }
 
         .cover-subtitle {
             font-size: 52px;
             font-weight: 400;
-            color: #86868b;
-            line-height: 1.4;
+            /* 原 #86868b 在白底仅 3.62:1，未达正文 4.5:1 门槛 */
+            color: #6E6E73;
+            line-height: 1.29;
+            letter-spacing: -0.026em;
             max-width: 1000px;
             text-align: center;
         }
@@ -75,14 +78,15 @@
             font-size: 26px;
             font-weight: 500;
             color: #1d1d1f;
+            letter-spacing: 0.01em;
         }
 
         /* 图片样式 */
         .image-container {
             width: 100%;
-            flex: 1;
+            flex: 1 1 auto;
             min-height: 280px;
-            max-height: 480px;
+            max-height: 780px;
             margin-top: 48px;
             display: flex;
             align-items: center;
@@ -113,9 +117,10 @@
         .slide-eyebrow {
             font-size: 22px;
             font-weight: 600;
-            color: #86868b;
+            color: #6E6E73;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            /* 22px ≈ 7.3pt，按 SF Pro 字距表约 +34/1000em；0.12em 过大，此处取 0.034em */
+            letter-spacing: 0.034em;
             margin-bottom: 12px;
         }
 
@@ -123,15 +128,24 @@
             font-size: 72px;
             font-weight: 600;
             color: #1d1d1f;
-            line-height: 1.1;
-            letter-spacing: -1.5px;
+            line-height: 1.24;
+            /* 24pt 区间官方值为正（约 +3/1000em） */
+            letter-spacing: 0.003em;
         }
 
         .content-wrapper {
-            flex: 0 0 auto;
+            /* 有图时不占据剩余空间，把空间让给插图 */
+            flex: 0 1 auto;
+            min-height: 0;
             display: flex;
             flex-direction: column;
             gap: 0;
+        }
+
+        /* 仅在无插图时撑满剩余高度，消除底部死区 */
+        .card-content:not(:has(.image-container)) .content-wrapper {
+            flex: 1 1 auto;
+            justify-content: space-evenly;
         }
 
         .content-item {
@@ -149,17 +163,18 @@
         .item-number {
             font-size: 28px;
             font-weight: 600;
-            color: #86868b;
+            color: #6E6E73;
             min-width: 48px;
             flex-shrink: 0;
+            letter-spacing: 0.01em;
         }
 
         .content-text {
             font-size: 38px;
-            line-height: 1.5;
+            line-height: 1.36;
             color: #1d1d1f;
             font-weight: 400;
-            letter-spacing: -0.3px;
+            letter-spacing: -0.006em;
         }
 
         .page-indicator {
@@ -168,9 +183,25 @@
             left: 50%;
             transform: translateX(-50%);
             font-size: 22px;
-            color: #86868b;
+            color: #6E6E73;
             font-weight: 500;
         }
+
+        /* 要点过多时逐级压缩间距，避免超出卡片被裁切 */
+        .content-wrapper:has(.content-item:nth-child(7)) .content-item {
+            padding: 22px 0;
+        }
+
+        .content-wrapper:has(.content-item:nth-child(8)) .content-item {
+            padding: 14px 0;
+        }
+
+        .content-wrapper:has(.content-item:nth-child(9)) .content-item {
+            padding: 8px 0;
+        }
+        /* 配图时为五个长要点保留实际文本高度。 */
+        .card-content:has(.image-container) .content-wrapper { flex: 0 0 auto; }
+        .card-content:has(.image-container) .content-item { padding: 18px 0; }
     </style>
 </head>
 
@@ -185,7 +216,7 @@
             <img class="card-image" src="{{ cover_image }}" alt="封面图片">
         </div>
         {% endif %}
-        
+
         <div class="cover-tags">
             {% for tag in cover_tags %}
             <span class="cover-tag">#{{ tag }}</span>

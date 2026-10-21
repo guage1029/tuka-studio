@@ -1,0 +1,393 @@
+{
+  "sample": {
+    "cover_title": "给灵感留白",
+    "cover_subtitle": "让创作成为一种日常，而不是等待灵感的偶然。",
+    "cover_tags": [
+      "创作日常",
+      "表达练习",
+      "慢慢积累"
+    ],
+    "cover_image": null,
+    "slides": [
+      {
+        "title": "让好想法留下来",
+        "content": [
+          "把观察记下来，不急着判断价值。",
+          "每天十五分钟，只写一个真实的问题。",
+          "先完成，再打磨。为重要的表达留白。"
+        ],
+        "image": null
+      }
+    ]
+  },
+  "templates": {
+    "xiaohongshu": {
+      "name": "小红书",
+      "png_sha256": [
+        "e45fe137e91cd9dd6fd2d454d730310f9004f653438412042137ee29ddc582ee",
+        "ae057e7f59958413948d67b185c4e895d68fce171f40291fc5847d3982acacab"
+      ],
+      "template_sha256": "e0fee0e1f0773cab8365c68ffea87b5245dc7e7e3fe0d28b8165ce69436c1de2"
+    },
+    "apple": {
+      "name": "苹果极简",
+      "png_sha256": [
+        "12a9c3b6793d3a18816060636a7474c4ba5bc45ab19f95215227343cc15ff859",
+        "4a1d1e284f2a2bcf2d2638cc569eb11098e008c0c26f26ef18d931979ab62bc9"
+      ],
+      "template_sha256": "9abfd0af6705c2075fac93967a84f6397a252da7e3dbac13172e9ce7d4f3fa71"
+    },
+    "neobrutalist": {
+      "name": "新粗野",
+      "png_sha256": [
+        "87b50d41ed3bc131b4031392ac755f0a8c32dab991a047991a197c6eefcb8e81",
+        "eaffae5712dca36ce67a7ffbc7ffd64ece1f254ef86684c451a75a6dfa651983"
+      ],
+      "template_sha256": "10f63c46cc24b7ed9132c6dbdb257e4364fbb8c52f633cc8edc8246498218007"
+    },
+    "chinese": {
+      "name": "新中式",
+      "png_sha256": [
+        "bd75148fe217f77ae9e320af697115335562db3081ece4757a1fa00cf2574853",
+        "4fdf58929426af61ad52719148865abd17c65fd20c57280c18edc3a5bbc57708"
+      ],
+      "template_sha256": "5f8c991457f2103996b2214233226c0a68ce7c90a9175c4226b47a0647bc99f7"
+    },
+    "memphis": {
+      "name": "孟菲斯",
+      "png_sha256": [
+        "9c9a7ae81858168cc9e59f287ef33fa027fcbf2024c5cc754b498b292bae02be",
+        "58007ff983ce71a5b0cda452d3146a2e9083eeab5f421461e46bfb5e570f8b69"
+      ],
+      "template_sha256": "2c26d679d9d9fd38713764a1bf9a4ac6b8f4f4267a5cdc091138d3e1ba0fcc35"
+    },
+    "journal": {
+      "name": "手账",
+      "png_sha256": [
+        "44bd52dbd6b23e0493625b14ae7e929af53a8169e128693250cf96096ab9eea5",
+        "de76bdeff8783db94efbc3b9dd134ae3bb359af563a478ed9a769c354cce1a88"
+      ],
+      "template_sha256": "cb1add878ccccbcab366e7ddf0f307319e95f29ce95e3b406d74706e69198134"
+    },
+    "magazine": {
+      "name": "杂志",
+      "png_sha256": [
+        "5a7b9a72db69ba1f56b118674e3f11b2a5b37fa130522e96f6603948f45b13cf",
+        "1e24dd4acfdef0eca751302d8367a2cabcf61b92bbc5d8b63890fc048cdc4ac6"
+      ],
+      "template_sha256": "bae312ec4932fd95c22f3f55bd84948c115a9c8b37af3f7ac456c8742e8aca40"
+    },
+    "polaroid": {
+      "name": "拍立得",
+      "png_sha256": [
+        "4c7074f5ffc3941e83fa44ab2ca9cf18fa42f7c0ebeec518677e414445fb2afe",
+        "a51d488a7eec85a5d6f1a5939e8224961ee90c2b9f5e244b8c7c92446121c242"
+      ],
+      "template_sha256": "0cf7d2a54e41fd85a7780b7365c6851d06df9d41c9b2e82074f3c389ef8c1d7d"
+    },
+    "tech": {
+      "name": "知识胶囊",
+      "png_sha256": [
+        "8862ae9b9b447ba35e54a910bcc36e57d07fdafc9ca78ff2df4d8f8d7bae8941",
+        "ff0d3f36fab5970f619a090c96d3968d4032deea67b87b6552b79b81fee08765"
+      ],
+      "template_sha256": "784caaf27b5403c7970e43d19519966abd23889b7d5012fc049e07f46aa3abc6"
+    },
+    "ins": {
+      "name": "INS",
+      "png_sha256": [
+        "699551625cf64eae848e764861f563ab361064ef728b036688ad00f2a8e31dbd",
+        "b2f9a28d94bb1291927be75658d0fd4b5842f41a4dbbe31ac63ff2eaf864dcac"
+      ],
+      "template_sha256": "fb0876508329e193157dee0a2d0c417929fdea627db7d24da347cb405df7fd7f"
+    },
+    "notion": {
+      "name": "备忘录",
+      "png_sha256": [
+        "a4d88cbc26a8b0d26718a440125a569d70982a19343cea34f571166d6786a752",
+        "51f3e2941d8a7d46ef92281c4f2b6439335b5dfdf71ef8769e43a53284984706"
+      ],
+      "template_sha256": "9a68cac99ce370d2a5023e83176c23a137414fd8b8a1042ba04c4011ffec974f"
+    },
+    "streaming": {
+      "name": "流光",
+      "png_sha256": [
+        "bdad69aa4516418d2b6063edc2aaa791c6cf21ab3c9fe462963c880bb307f00f",
+        "b4ac5e775cee1dbbae90eaf1b1e4076cad3b2afef3adab9f3d4afad0cec238b7"
+      ],
+      "template_sha256": "e09ea1b5f59403e97e099aab0f3185dec46450eb4e3d2d277908bab9b4a1e36e"
+    },
+    "capsule": {
+      "name": "胶囊",
+      "png_sha256": [
+        "fd4cb1eb1f76ea1321a349a6a1cbdc6cbde6eec664a0e97fa3c5057bdb296979",
+        "b0609d42007fcaf977b271fda5e5e54a6ebb699cf056bdf6127d55a8115869e8"
+      ],
+      "template_sha256": "2e26ceb3267436b2fb251bc9c8e80cf6ccadc2a07db5b3b940fdc53cb14c1580"
+    },
+    "ppt-minimal-white": {
+      "name": "纯白极简",
+      "png_sha256": [
+        "dbfa70819ad09e429780358747da7c96188e4fb22208181c8a980f829a75d55a",
+        "2dfed6d7c051549ad0dd3fbd65967c66892051e77e7d9a05a7a11a7f3e219be9"
+      ],
+      "template_sha256": "cab2aa82615ab85e35a2444c515dcb69bdd96a9b27ba354a2c736aafcca179ea"
+    },
+    "ppt-editorial-serif": {
+      "name": "编辑衬线",
+      "png_sha256": [
+        "4c3521063831e8b5f1375d00f140c1ffc657df69d6d27744ba8963f668c258a1",
+        "117871d5b309c931e1165bee550b8de5e099ca1fb6dd38de49882fe96a257844"
+      ],
+      "template_sha256": "519715b398d6de47f2a40c9d21fd6a11f58dec7350a8daa14316e2498dc8098b"
+    },
+    "ppt-soft-pastel": {
+      "name": "柔光马卡龙",
+      "png_sha256": [
+        "a4523bc53c02a8deec5c2b06a22f77b11888445a094ba206b9d48dc3eb2c50b2",
+        "e66bc84c2c3916ccf93c0b33d4df63f5e7c862e9cb0705d0677ff653dd208821"
+      ],
+      "template_sha256": "26607044e015e3609326f2878885ebc9c907221349212773a40c00c8e78d156a"
+    },
+    "ppt-arctic-cool": {
+      "name": "极地冷蓝",
+      "png_sha256": [
+        "766dbe77b86cb1b4cb8edd52c5562fe99b86c1fbdcc3ecdca7d37a5fc93a3831",
+        "652084ebe896ac126f5322aa648eec068f385db7ec605973ee351e535d32d4ca"
+      ],
+      "template_sha256": "d663f92d9f99e64ac0385016a7bcadaf2666ab254004f95f2874e7a9597bd409"
+    },
+    "ppt-sunset-warm": {
+      "name": "落日暖橘",
+      "png_sha256": [
+        "b0cfcb5db02d02324652d43b8c2f4df06d24469a33827b585c2dc895c2c8a4d5",
+        "a68e5aadc134ede0c8ff131a4764932704e8296f314f117d5efb1e9b55736a19"
+      ],
+      "template_sha256": "d6f6d4ccd75bafebb57494b33b4af53e4dd6bb5cba1cd52af65492b9f7aac034"
+    },
+    "ppt-catppuccin-latte": {
+      "name": "卡布奇诺·浅",
+      "png_sha256": [
+        "07afae72b0477a5d8223cba97ad908001d7c787c45701b997e26f78fc63fe60e",
+        "56ebf8305a89de3e1555b763601651e88d6ca18dec70b02bebedef9f0416fbee"
+      ],
+      "template_sha256": "e237258b36db6d7e1b3d34c1b7d7123e554717536ce548935ab4785ed6bba3a7"
+    },
+    "ppt-catppuccin-mocha": {
+      "name": "卡布奇诺·深",
+      "png_sha256": [
+        "9abf8c6d344efdf368ca5c4d37ecbc9b052e8ba5cf46638c3f3f9abc2634ec43",
+        "b4c9dd016f1f8613072228b86b977c2fbb5775da0867dfa9db7fdd79df6400cb"
+      ],
+      "template_sha256": "003efc03dfcbae465b38d3112086a41796f497237bb46b42305da0d2b45a2022"
+    },
+    "ppt-dracula": {
+      "name": "德古拉",
+      "png_sha256": [
+        "0d4287e2897051c8eb0e52c1282c832ca0fcfa8612260cdf47515a958b3dbdeb",
+        "3638e61853a774f46bda96ef07665f23c9a49febbf82c6985cdf0eced2740756"
+      ],
+      "template_sha256": "f67581a2c57411508367af9b5ea54ee4ece641426fbed11e6e8ef8b64159b3fd"
+    },
+    "ppt-tokyo-night": {
+      "name": "东京夜",
+      "png_sha256": [
+        "38bd57d7c0d24ae064d375a06f854d8ece9a849723e99b0a5b54986bd95ad765",
+        "f61889c08643bc5b32e16243aed967e1127fb7661d64f5e98014e9426197f342"
+      ],
+      "template_sha256": "2ebf2bce83534c93bd19d799118dd59322000fb8e70a4e57f4b7d95abfc1c594"
+    },
+    "ppt-nord": {
+      "name": "北欧冷调",
+      "png_sha256": [
+        "6ece6f0b39ecc25bb442e18ff506df362254ff3905f0e9f5a6281ba696a65e7d",
+        "45de0ff31f59d51fe3958bcc673e78bf4ab8d0ad83108767ed5c16e5480e0825"
+      ],
+      "template_sha256": "4ea0a4d39c113ded7501596900f6a9d886f39899dec48f1ef983cab8d8dc4d47"
+    },
+    "ppt-solarized-light": {
+      "name": "日光浅色",
+      "png_sha256": [
+        "6dd2e3e274f16c80926cf3aa2be9744c553a97131372b3a5d140f3658d4c79c9",
+        "08cf1c13da871933197d96f8e68236fc9acb307c754c2d0c6feefe92460e4210"
+      ],
+      "template_sha256": "65044dad54b1657ed725eb5ff6e6c5b728680e1021ff9b64206f4580c367f07b"
+    },
+    "ppt-gruvbox-dark": {
+      "name": "暖复古深色",
+      "png_sha256": [
+        "80037cfd47ba5d9ae668383375d8742abe195caace25c78e4f218c9543bd8405",
+        "adfb04c5783735297b313723699bb2e3d0e71ff39bcc6c246b30098bda00148a"
+      ],
+      "template_sha256": "a067829ebd285edb4fce32805de0b14f31249370210a19fd5e3050ba019491b4"
+    },
+    "ppt-rose-pine": {
+      "name": "玫瑰松",
+      "png_sha256": [
+        "4437c5bf74b4fdf08ed494fb591f5a4cd8d936f2a9ac3fcfbfee8324f22ccf8d",
+        "34ac995107ecea822395fbb4fc8a0bb060c4129a08cb65a62c62e096ad049e49"
+      ],
+      "template_sha256": "7fa4b6e99dd1f6fa404a52b847474bc9b44e9e06e6967797666d42b89abf6b8c"
+    },
+    "ppt-neo-brutalism": {
+      "name": "几何粗野",
+      "png_sha256": [
+        "2cdbb7908cefb91e20c104ab42b82260cf22b9155555b673c2ce7c068f2b8e7d",
+        "1de43ed7c4180aaf99eefdd0ee4c0bf8060d94e6db82a673bce1d3d84702156c"
+      ],
+      "template_sha256": "07ef46cc548476de54b32f8bd4bb17654da0a8903a551b1257c0bb29d679b3ca"
+    },
+    "ppt-glassmorphism": {
+      "name": "玻璃",
+      "png_sha256": [
+        "4f8a972fc22debd13aacff5888377f240101c77a2d490e19a6f93d7803d4204e",
+        "6639fcc78898cc6baae315980152eb3aabec544601e670e288cb2050b389a581"
+      ],
+      "template_sha256": "2f12fd46a3533cab931041742260db7c8890a02c7800e25ea997bc96c7469dd9"
+    },
+    "ppt-bauhaus": {
+      "name": "包豪斯",
+      "png_sha256": [
+        "5b86526ac8c35e33ea77ff79d6cf257e4043d7e8343fba8d17059875b007ae19",
+        "36ec6259cd9db387bc17604b371cb594d032054136a46df0b5b6f3393582a015"
+      ],
+      "template_sha256": "ddc25c59d7e99b34bfc5b7b36d72d78b39ece10b83060b08f40cac19baaa6d87"
+    },
+    "ppt-swiss-grid": {
+      "name": "瑞士网格",
+      "png_sha256": [
+        "3578e88ee71ab43b1fdf23a643bfb3a0d8b52651b8d8d2c65dfb8997dc7b668e",
+        "5602450b319819be45164738afe2ea6b3a78a17e22b6e5502fc27ddf4d92cc29"
+      ],
+      "template_sha256": "172a147affb93d3a54a9da904acb0df6233e807346ad86b0094f8177c4a0f840"
+    },
+    "ppt-terminal-green": {
+      "name": "绿屏终端",
+      "png_sha256": [
+        "a74ff96dfef0e590656ee1120d6f90083593cd15646c8f11dd50ca44341cf70b",
+        "ae8d8cd5e7c34e0ed86b9c2cb22a85e90ab009f875f895f0d502d20f760b2101"
+      ],
+      "template_sha256": "e42cfc3bc7fb1768a1b3e1a0f20f44edb042e807f5727ee3989d67edd9705d59"
+    },
+    "ppt-xiaohongshu-white": {
+      "name": "小红书白",
+      "png_sha256": [
+        "c2aaf136884ca012bbc7525d3d8c0b058fa80bbe8750ec76b126eba0cf89aab6",
+        "b1cb339a78441d1bb965fbee677631d9db11f0ad6030d7dbd93280edc49970e9"
+      ],
+      "template_sha256": "cef66450a5146ae51592121bda099e8c237e5f5cea3271a03741000c5e6a8ce1"
+    },
+    "ppt-rainbow-gradient": {
+      "name": "彩虹渐变",
+      "png_sha256": [
+        "dbb6b6e9eb81987ff330d85b599dcf2bdb4ca6e6850997e02b8169a211228284",
+        "dff24d60ee99e67e24613ee0a7a79180556e7b27340549f09b224af47d28c92d"
+      ],
+      "template_sha256": "3addefc5504e54c937c9fac09d3612f27d820fe8f7e9050cf1f11231f7ff5f10"
+    },
+    "ppt-aurora": {
+      "name": "极光",
+      "png_sha256": [
+        "106d6e89a672ff8d677f76e2012bc761b4a2dc7e105d0b6f0e1da78d37e60c38",
+        "51e25c265f49e79fb5de8b3606c48d649d96f45454d27c5c2bcc7d388be9042e"
+      ],
+      "template_sha256": "42951fb1a859bc25904e4fb9aa0aca4630dabb313fe577042cedf28e34d9e185"
+    },
+    "ppt-blueprint": {
+      "name": "蓝图",
+      "png_sha256": [
+        "05a8352edae6a158cc90c2241819a0d8b9dc87861f6eff1615c53ad4bffc9f9b",
+        "348c8eec0b66dd23871807ae6f4764d61c721b07e3cc542c4a5a5bdc780ad83b"
+      ],
+      "template_sha256": "4f19333aca1123d86fc79b5171f5a81cf433cfaac9c5e554496261de98798017"
+    },
+    "ppt-memphis-pop": {
+      "name": "孟菲斯波普",
+      "png_sha256": [
+        "fd506a88546c771c83e6867ba1babf6f7c4c63d5cdf0dc0db375f0eb2551d4b9",
+        "5b879bd4c5546e0aac03f90298c4065e3487939d7278a77f629340ee2bf79d59"
+      ],
+      "template_sha256": "dd51291f6af124347e8aaee348c6f6998956a5d5da5ecfefcc710cf3a60aeeac"
+    },
+    "ppt-cyberpunk-neon": {
+      "name": "赛博霓虹",
+      "png_sha256": [
+        "5ed962124dcc5fedab54841ecbfbbe04f3facb7ceee3cc4ed4beb167dc2b2014",
+        "5c834b0b12979d264016644a56ee55f7c6ace7ada32a459927fb7d65cea10608"
+      ],
+      "template_sha256": "32ea6f60eb08728e3adb10e4fe2ecd2e80d196907bfe767ac907b0be1da3a951"
+    },
+    "ppt-y2k-chrome": {
+      "name": "千禧铬银",
+      "png_sha256": [
+        "ede0725281386b248bb1d6916b3d19db21aee3c1c6604742326bcf07353d37e7",
+        "687637e88afd7f16a5713d43d3e3a4dc1286391a4919f9864d856635326cc127"
+      ],
+      "template_sha256": "4ad9752432ad129a811cf47ffd7e10257fe6feba7cc77aa209918616f0a88f46"
+    },
+    "ppt-japanese-minimal": {
+      "name": "日式极简",
+      "png_sha256": [
+        "d040dc2684395a78151a378797b0ec5bc8d04187c7d0502e80e19435723f0234",
+        "b42851ff3dbaa7e25c7d3b2bd549690f101a6c77c939ff559044344835eda72a"
+      ],
+      "template_sha256": "cebd8a64b75253e8eac98a6d02c47a5a4b2824ab5e749c483baeae22c2ba1fec"
+    },
+    "ppt-vaporwave": {
+      "name": "蒸汽波",
+      "png_sha256": [
+        "892ad4d43d3e68f76c843e4854786b9d7457c92b24a1de01b5b702060b81f6ac",
+        "0edf17cb2cfc0a9b497322e6490fffd6df6acbec87d2826817447b118f737e3c"
+      ],
+      "template_sha256": "f8684cd74cf7165c368fb70e356c65447b6cc42cd50cbc1fce5659e59544312c"
+    },
+    "ppt-midcentury": {
+      "name": "中古",
+      "png_sha256": [
+        "e683816cec4b9e8212d882d3322087d1de2107b5167a311cfcbfc555a0ac5298",
+        "32f4f332df6d9e590417fc71ad75e722c26b992e11497094739eae5c333680fe"
+      ],
+      "template_sha256": "8a2c874746a9224e2e6dc03222d9609a6c9e56b684ee9d4351b573e49e66c8cc"
+    },
+    "ppt-corporate-clean": {
+      "name": "商务简洁",
+      "png_sha256": [
+        "ebc017c5bab3416429bd3ecfb8c93b9a9efef8e09917942aa990312c12ff324b",
+        "51057d6e9f8dcc1b9a2762e9549d9e09ec3895cdca9c36c41eb0a6c1c0d3db5f"
+      ],
+      "template_sha256": "e5b9e4c29919eeddbd47732cb080cbedaf36613a6724ce1793685530ba6eb358"
+    },
+    "ppt-academic-paper": {
+      "name": "学术论文",
+      "png_sha256": [
+        "619a70446d2270bc340f9b5186704ac49d2569c156efbb2634a9257f0e21b091",
+        "4c7979c748574cf0a353aa2912fc0beb073eb35e6a6db6f5f868522f01ce89fd"
+      ],
+      "template_sha256": "f401902f581017b5e5f7909e98f6a2a0994f71be1dc2bdb0957b15dc2dd5b572"
+    },
+    "ppt-news-broadcast": {
+      "name": "新闻播报",
+      "png_sha256": [
+        "6d306e83230136f1e1e7c01f732ed94084f3e05a17430d64c2fba31545886a04",
+        "b31f77d97fd513f659409fc4e6b64de6d6fc452597053b030cf6e27865ac759a"
+      ],
+      "template_sha256": "c4373c57f9e071eea2424cacbba15f5c5cdf49ef4e4b74030f94b1dbbc74dc83"
+    },
+    "ppt-pitch-deck-vc": {
+      "name": "融资路演",
+      "png_sha256": [
+        "2558a75b3a237f4f40877b9e8cb6b1e84645c8a07bbdcae272ee72fe2c8cb231",
+        "07aba0287a8b7dd8e00e87851e05a6e4e72e5a7f473bd45c52c82f5da231239e"
+      ],
+      "template_sha256": "decc6800884f31289e8a95a4f5907a11cac4c1eb03bf63b833540162ebc0ebcf"
+    },
+    "ppt-magazine-bold": {
+      "name": "大胆杂志",
+      "png_sha256": [
+        "b6c166d9d56e1651b316adf7949b0f8d9f8c846a5cea6847400d8e334f8fe91c",
+        "da7f26f3bc42c07cdb41d2ea4dc638759305592d831f72157445af99921dc92a"
+      ],
+      "template_sha256": "74579338fe8533b7151666142cf9dbf396802d4aed1e1de2802c2e6e16a7acc5"
+    }
+  }
+}

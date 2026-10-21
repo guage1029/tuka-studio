@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}制作图卡 · TUKA 工作台{% endblock %}
+{% block nav %}<a href="/#gallery">浏览模板</a><a href="/#privacy">模型与隐私</a>{% endblock %}
+{% block content %}
+<main id="main" class="workspace shell">
+  <div class="workspace-heading"><div><p class="eyebrow">THE CREATOR'S DESK</p><h1>让想法，成形<span class="accent">。</span></h1></div><p>自带国产模型 Key · 无需注册<br>内容只在当前页面保留，刷新后清空。</p></div>
+  <ol class="workflow" aria-label="制作步骤"><li class="current" id="step-1"><span>01</span> 整理内容</li><li id="step-2"><span>02</span> 编辑确认</li><li id="step-3"><span>03</span> 渲染下载</li></ol>
+  <div class="desk">
+    <section class="input-column" aria-label="内容与模型设置">
+      <details class="model-config" id="model-config"><summary><span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg> 模型配置</span><span class="config-hint" id="config-hint">先填写 · 仅内存</span></summary>
+        <form id="config-form" novalidate autocomplete="off">
+          <label for="provider">模型厂商</label><select id="provider" name="provider" aria-describedby="provider-help">{% for id, provider in providers.items() %}<option value="{{ id }}" data-catalog="{{ 'true' if 'models' in provider else 'false' }}">{{ provider.name }}</option>{% endfor %}</select><p id="provider-help" class="field-help">仅支持国内模型服务，地址与接入方式已配置好。</p>
+          <label for="api-key">API Key</label><div class="key-field"><input id="api-key" name="api-key" type="password" placeholder="你的 API Key" required maxlength="512" autocomplete="off" spellcheck="false" aria-describedby="key-error"><button id="toggle-key" type="button" aria-label="显示 Key" aria-pressed="false" class="icon-button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></div><p class="field-error" id="key-error" role="alert"></p>
+          <div class="model-picker-heading"><label for="model">选择模型</label><button id="refresh-models" type="button" class="button outline small">刷新模型列表</button></div><select id="model" name="model" required disabled aria-describedby="model-status model-error"><option value="">先输入 Key，再刷新模型列表</option></select><p id="model-status" class="field-help" role="status" aria-live="polite">输入 Key 并刷新后，从列表选择模型。</p><p class="field-error" id="model-error" role="alert"></p>
+          <p class="field-help">使用开放平台按量 API Key。Key 仅当前页面有效；正文会发送给所选厂商，费用由厂商收取。<a href="/#privacy" target="_blank" rel="noopener">了解隐私</a></p>
+        </form>
+      </details>
+      <section class="source-section"><div class="field-heading"><label for="content">你的原始内容</label><button class="plain-button" id="use-example" type="button">填入示例</button></div><textarea id="content" rows="5" maxlength="20000" placeholder="粘贴一篇有想法的长文……&#10;&#10;支持 Markdown；模型按图片说明与上下文选图，多余配图不使用。" aria-describedby="content-help content-error"></textarea><div class="input-meta"><span id="content-help">50–20,000 字 · 最多生成 9 张图卡</span><span id="char-count">0 / 20,000</span></div><p class="field-error" id="content-error" role="alert"></p><button class="plain-button" id="check-sensitive" type="button">检查敏感词</button><p class="field-help" id="sensitive-result" role="status">词库检查仅供编辑参考，不代表平台合规判断。</p></section>
+      <section class="style-section"><label for="style-select">图卡样式</label><div class="style-control"><img id="style-thumb" src="/static/samples/{{ selected_style }}.webp" width="62" height="83" alt="当前样式封面样例"><div><select id="style-select">{% for style in styles %}<option value="{{ style.id }}" {% if style.id == selected_style %}selected{% endif %}>{{ style.name }}</option>{% endfor %}</select><button class="plain-button" type="button" id="view-style">放大此样例 <span aria-hidden="true">↗</span></button></div></div></section>
+      <button id="generate" class="button primary full" type="button">整理成图卡文案 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button><p class="field-help">这一步调用模型；确认文案后再渲染图片。</p>
+    </section>
+    <section class="output-column" aria-label="编辑与图卡预览"><div class="output-heading"><div><p class="eyebrow" id="output-eyebrow">YOUR NEXT GOOD IDEA</p><h2 id="output-title">给表达留一点空间。</h2></div><span class="output-count" id="output-count"></span></div>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <button class="plain-button" id="cancel-task" type="button" hidden>取消本次操作</button>
+      <div class="empty-state" id="empty-state"><svg class="empty-art" viewBox="0 0 200 170" aria-hidden="true"><rect x="66" y="21" width="88" height="118" rx="2" transform="rotate(12 110 80)"/><rect x="39" y="28" width="88" height="118" rx="2" transform="rotate(-9 83 87)"/><path d="M56 61h41M59 75h32M62 109h40M64 119h24"/></svg><h3>一篇文字，可以有很多种样子。</h3><p>在左侧填入模型配置和内容，<br>生成后在这里确认、编辑，再变成图卡。</p><span class="empty-footnote">先把内容说好，再让设计发生。</span></div>
+      <div id="editor" class="editor" hidden></div>
+      <div class="render-actions" id="render-actions" hidden><button class="button dark" id="render" type="button">确认文案，渲染图片</button><span>换样式无需再次调用模型</span></div>
+      <div id="results-section" hidden><div class="results-heading"><h3>你的图卡已就绪</h3><button class="button outline small" id="download-all" type="button">整组下载 ZIP <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></svg></button></div><p class="field-help">图片为 1242 × 1660 px；编辑内容或换样式后需重新渲染。</p><div id="results" class="results-grid"></div></div>
+    </section>
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/app.js" defer></script>{% endblock %}

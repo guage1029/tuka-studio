@@ -118,7 +118,7 @@ tar -czf rednote-gen-v1.0.0.tar.gz \
 模板（9种风格）：
 ├── template.html             # 小红书原版
 ├── template_apple.html       # 苹果极简
-├── template_dopamine.html    # 多巴胺酸性
+├── template_neobrutalist.html # 新粗野风格
 ├── template_magazine.html    # Capsule 终端
 ├── template_tech.html        # 知识胶囊
 ├── template_notion.html      # Notion 效率

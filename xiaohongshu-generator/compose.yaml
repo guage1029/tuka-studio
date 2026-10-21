@@ -1,0 +1,22 @@
+services:
+  tuka:
+    build: .
+    ports:
+      - "127.0.0.1:5001:5001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,size=512m,mode=1777
+    volumes:
+      - tuka-stats:/data
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 256
+    ulimits:
+      core: 0
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+volumes:
+  tuka-stats:

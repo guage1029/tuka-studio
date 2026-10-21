@@ -1,0 +1,16 @@
+**
+!Dockerfile
+!requirements.txt
+!app.py
+!main.py
+!ai_providers.py
+!safe_http.py
+!metrics.py
+!sensitive_words.py
+!template*.html
+!templates/
+!templates/**
+!static/
+!static/**
+!licenses/
+!licenses/**

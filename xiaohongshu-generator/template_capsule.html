@@ -23,7 +23,7 @@
         }
 
         body {
-            font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+            font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', 'Noto Sans SC', monospace;
             background: var(--bg-page);
             padding: 40px;
             display: flex;
@@ -169,8 +169,10 @@
             font-size: 120px;
             line-height: 0.8;
             font-weight: 700;
-            color: var(--surface);
-            -webkit-text-stroke: 2px var(--border);
+            color: #555555;
+            /* 调亮为浅灰色 */
+            -webkit-text-stroke: 2px #666666;
+            /* 边框也调亮 */
         }
 
         .slide-title {
@@ -215,16 +217,10 @@
             line-height: 1.5;
         }
 
-        .footer-info {
-            position: absolute;
-            bottom: 40px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-            color: #444;
-            font-size: 24px;
-            letter-spacing: 4px;
-        }
+        /* 配图时为五个长要点保留实际文本高度。 */
+        .card-content:has(.image-container) .content-list { gap: 20px; }
+        .card-content:has(.image-container) .content-capsule { padding: 24px 32px; }
+        .card-content:has(.image-container) .content-text { font-size: 36px; }
     </style>
 </head>
 
@@ -243,13 +239,13 @@
         <div class="pill-shape">CAPSULE CORE</div>
         <h1 class="cover-title">{{ cover_title }}</h1>
         <p class="cover-subtitle">{{ cover_subtitle }}</p>
-        
+
         {% if cover_image %}
         <div class="image-container">
             <img class="card-image" src="{{ cover_image }}" alt="封面图片">
         </div>
         {% endif %}
-        
+
         <!-- 动态标签 -->
         <div class="cover-tags">
             {% for tag in cover_tags %}
@@ -281,7 +277,6 @@
         </div>
         {% endif %}
 
-        <div class="footer-info">/// SYSTEM_{{ loop.index }} ///</div>
     </div>
     {% endfor %}
 </body>

@@ -1,0 +1,378 @@
+{# Theme adapted from lewislulu/html-ppt-skill, MIT; see licenses/html-ppt-MIT.txt. #}
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>RednoteGen · 主题图卡</title>
+    <style>
+        /* ===== 基础 token（无主题链接时的兜底，与 html-ppt base.css 对齐） ===== */
+        :root {
+            --bg: #ffffff;
+            --bg-soft: #f7f7f8;
+            --surface: #ffffff;
+            --surface-2: #f2f2f4;
+            --border: rgba(0, 0, 0, .08);
+            --border-strong: rgba(0, 0, 0, .16);
+            --text-1: #111216;
+            --text-2: #55596a;
+            --text-3: #8a8f9e;
+            --accent: #3b6cff;
+            --accent-ink: #000000;
+            --accent-2: #7a5cff;
+            --accent-3: #ff5c8a;
+            --good: #1aaf6c;
+            --warn: #f5a524;
+            --bad: #e0445a;
+            --grad: linear-gradient(135deg, #3b6cff, #7a5cff 55%, #ff5c8a);
+            --grad-soft: linear-gradient(135deg, #eef2ff, #f5ecff 55%, #ffeef5);
+            --radius: 18px;
+            --radius-sm: 12px;
+            --radius-lg: 26px;
+            --shadow: 0 10px 30px rgba(18, 24, 40, .08), 0 2px 6px rgba(18, 24, 40, .04);
+            --shadow-lg: 0 24px 60px rgba(18, 24, 40, .14), 0 6px 16px rgba(18, 24, 40, .06);
+            --font-sans: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', Helvetica, Arial, sans-serif;
+            --font-serif: 'Playfair Display', 'Noto Serif SC', 'Songti SC', Georgia, 'Noto Sans SC', serif;
+            --font-mono: 'JetBrains Mono', 'IBM Plex Mono', SFMono-Regular, Menlo, 'Noto Sans SC', monospace;
+            --font-display: var(--font-sans);
+            --letter-tight: -.03em;
+            --letter-normal: -.01em;
+            --ease: cubic-bezier(.4, 0, .2, 1);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 40px;
+            background: #e9e9ee;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            justify-content: center;
+        }
+
+        /* ===== 图卡（一页 = 一张卡，尺寸对齐现有 13 套模板） ===== */
+        .xhs-card {
+            position: relative;
+            width: 1242px;
+            height: 1660px;
+            flex-shrink: 0;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text-1);
+            font-family: var(--font-sans);
+            font-weight: 400;
+            line-height: 1.6;
+            letter-spacing: var(--letter-normal);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===== 排版原语 ===== */
+        h1.title,
+        .h1 {
+            font-family: var(--font-display);
+            font-size: 120px;
+            line-height: 1.08;
+            font-weight: 800;
+            letter-spacing: var(--letter-tight);
+            margin: 0;
+            color: var(--text-1);
+        }
+
+        h2.title,
+        .h2 {
+            font-family: var(--font-display);
+            font-size: 68px;
+            line-height: 1.14;
+            font-weight: 700;
+            letter-spacing: var(--letter-tight);
+            margin: 0;
+        }
+
+        .kicker {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--accent);
+            letter-spacing: .18em;
+            text-transform: uppercase;
+        }
+
+        .eyebrow {
+            font-size: 20px;
+            font-weight: 500;
+            letter-spacing: .16em;
+            text-transform: uppercase;
+            color: var(--text-3);
+        }
+
+        .mono {
+            font-family: var(--font-mono);
+        }
+
+        .gradient-text {
+            background: var(--grad);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+
+        /* ===== 内部内容卡 / 标签 / 分隔线 ===== */
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 10px 26px;
+            border-radius: 999px;
+            font-size: 26px;
+            font-weight: 600;
+            background: var(--surface-2);
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+
+        .divider {
+            height: 1px;
+            width: 100%;
+            background: var(--border);
+        }
+
+        .divider-accent {
+            height: 6px;
+            width: 88px;
+            border-radius: 2px;
+            background: var(--accent);
+        }
+
+        /* 配图区：与现有 13 套模板保持一致——弹性占位、限高、圆角裁剪 */
+        .image-container {
+            width: 100%;
+            flex: 1 1 auto;
+            min-height: 300px;
+            max-height: 760px;
+            margin-top: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+            border-radius: var(--radius);
+        }
+
+        /* ===== 封面 ===== */
+        .card-cover {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 120px 100px;
+            gap: 36px;
+        }
+
+        .cover-title {
+            font-size: 120px;
+        }
+
+        .cover-subtitle {
+            font-size: 46px;
+            font-weight: 300;
+            line-height: 1.4;
+            color: var(--text-2);
+            margin: 0;
+            max-width: 1040px;
+        }
+
+        .cover-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: 8px;
+        }
+
+        .card-cover .image-container {
+            margin-top: 36px;
+            max-height: 640px;
+        }
+
+        /* ===== 内容页 ===== */
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            padding: 96px 100px;
+        }
+
+        .slide-header {
+            margin-bottom: 44px;
+        }
+
+        .slide-title {
+            margin-top: 14px;
+        }
+
+        .slide-header .divider-accent {
+            margin-top: 30px;
+        }
+
+        .content-panel {
+            /* 有配图时不抢剩余高度，把空间让给插图 */
+            flex: 0 0 auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            padding: 20px 48px;
+        }
+
+        /* 无配图时撑满，消除底部死区 */
+        .card-content:not(:has(.image-container)) .content-panel {
+            flex: 1 1 auto;
+        }
+
+        .content-item {
+            display: flex;
+            align-items: baseline;
+            gap: 28px;
+            padding: 30px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .content-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-number {
+            font-family: var(--font-mono);
+            font-size: 30px;
+            font-weight: 700;
+            color: var(--accent);
+            min-width: 62px;
+            flex-shrink: 0;
+        }
+
+        .content-text {
+            font-size: 40px;
+            line-height: 1.46;
+            color: var(--text-1);
+        }
+
+        /* 页码：与现有 13 套模板统一，右下角绝对定位 */
+        .page-indicator {
+            position: absolute;
+            bottom: 60px;
+            right: 100px;
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text-3);
+            letter-spacing: .02em;
+        }
+
+        /* 要点过多时逐级压缩，避免溢出被裁切 */
+        .content-item:has(.content-text) {
+            padding: 30px 0;
+        }
+
+        .content-panel:has(.content-item:nth-child(6)) .content-item {
+            padding: 22px 0;
+        }
+
+        .content-panel:has(.content-item:nth-child(7)) .content-item {
+            padding: 16px 0;
+        }
+
+        .content-panel:has(.content-item:nth-child(8)) .content-item {
+            padding: 10px 0;
+        }
+        /* 配图时保留文本实际高度，为五个长要点留足行距。 */
+        .card-content:has(.image-container) .content-item { padding: 14px 0; }
+        .card-content:has(.image-container) .content-text { font-size: 34px; }
+    </style>
+    <style>
+/* theme: dracula — ported from lewislulu/html-ppt-skill (MIT) */
+/* theme: dracula — dracula 深色 */
+:root{
+  --bg:#282a36;--bg-soft:#21222c;--surface:#343746;--surface-2:#44475a;
+  --border:rgba(248,248,242,.12);--border-strong:rgba(248,248,242,.24);
+  --text-1:#f8f8f2;--text-2:#bdbde0;--text-3:#6272a4;
+  --accent:#bd93f9;--accent-2:#ff79c6;--accent-3:#8be9fd;
+  --accent-ink:#0b1024;  /* text on --accent — 7.8:1 */
+  --good:#50fa7b;--warn:#f1fa8c;--bad:#ff5555;
+  --grad:linear-gradient(135deg,#bd93f9,#ff79c6 55%,#8be9fd);
+  --grad-soft:linear-gradient(135deg,#343746,#44475a);
+  --radius:12px;--radius-sm:8px;--radius-lg:18px;
+  --shadow:0 10px 30px rgba(0,0,0,.4);
+  --shadow-lg:0 22px 60px rgba(0,0,0,.55);
+  --font-sans:'Inter','Noto Sans SC',sans-serif;
+}
+
+</style>
+</head>
+
+<body>
+    <!-- 封面卡片 -->
+    <section class="xhs-card card-cover" id="card-1">
+        <div class="kicker">RednoteGen</div>
+        <h1 class="title h1 cover-title">{{ cover_title }}</h1>
+        <div class="divider-accent"></div>
+        <p class="cover-subtitle">{{ cover_subtitle }}</p>
+
+        {% if cover_image %}
+        <div class="image-container">
+            <img class="card-image" src="{{ cover_image }}" alt="封面图片">
+        </div>
+        {% endif %}
+
+        <div class="cover-tags">
+            {% for tag in cover_tags %}
+            <span class="pill">#{{ tag }}</span>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- 内容卡片 -->
+    {% for slide in slides %}
+    <section class="xhs-card card-content" id="card-{{ loop.index + 1 }}">
+        <header class="slide-header">
+            <div class="kicker">Part {{ '%02d' % loop.index }}</div>
+            <h2 class="title h2 slide-title">{{ slide.title }}</h2>
+            <div class="divider-accent"></div>
+        </header>
+
+        <div class="content-panel panel">
+            {% for item in slide.content %}
+            <div class="content-item">
+                <span class="item-number">{{ '%02d' % loop.index }}</span>
+                <div class="content-text">{{ item }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if slide.image %}
+        <div class="image-container">
+            <img class="card-image" src="{{ slide.image }}" alt="内容图片">
+        </div>
+        {% endif %}
+
+        <div class="page-indicator">{{ loop.index }} / {{ slides|length }}</div>
+    </section>
+    {% endfor %}
+</body>
+
+</html>

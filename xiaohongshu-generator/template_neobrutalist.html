@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo Brutalist 新粗野</title>
+    <style>
+        /*
+        Style Essence: Neo-Brutalism, High-Contrast Industrial, Raw UI, Tactical Minimalism
+        Visual Keywords:
+        - 5px Black Outlines
+        - Hard 8px Solid Shadow
+        - Acid Yellow Accents
+        - Geometric Bento Grid
+        - Zero Border-Radius
+        - Heavy Typography
+        - Caution-Tape Textures
+        - Sticker Aesthetic
+        */
+
+        :root {
+            /* 核心配色 */
+            --acid-yellow: #DFFF00;
+            --pure-black: #000000;
+            --pure-white: #FFFFFF;
+            --off-white: #F5F5F5;
+            --light-gray: #E8E8E8;
+
+            /* 强调色 - 贴纸风格 */
+            --sticker-red: #FF3131;
+            --sticker-blue: #0066FF;
+            --sticker-green: #00D26A;
+            --sticker-orange: #FF6F00;
+            --sticker-pink: #FF1493;
+
+            /* 统一规范 */
+            --outline: 5px solid var(--pure-black);
+            --shadow: 8px 8px 0px var(--pure-black);
+            --shadow-small: 5px 5px 0px var(--pure-black);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--light-gray);
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Arial Black', 'Noto Sans SC', sans-serif;
+            color: var(--pure-black);
+            padding: 40px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            justify-content: center;
+        }
+
+        /* 卡片基础 - 5px边框、8px硬阴影、零圆角 */
+        .card {
+            width: 1242px;
+            height: 1660px;
+            background: var(--pure-white);
+            border: var(--outline);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        /* 警示带 */
+        .caution-stripe {
+            height: 50px;
+            background: repeating-linear-gradient(
+                -45deg,
+                var(--acid-yellow) 0px,
+                var(--acid-yellow) 25px,
+                var(--pure-black) 25px,
+                var(--pure-black) 50px
+            );
+            border-bottom: var(--outline);
+        }
+
+        .caution-stripe-bottom {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background: repeating-linear-gradient(
+                45deg,
+                var(--pure-black) 0px,
+                var(--pure-black) 25px,
+                var(--acid-yellow) 25px,
+                var(--acid-yellow) 50px
+            );
+            border-top: var(--outline);
+        }
+
+        /* ==================== 封面卡片 ==================== */
+        .card-cover {
+            background: var(--acid-yellow);
+        }
+
+        .cover-grid {
+            height: calc(100% - 100px);
+            padding: 50px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto 1fr auto;
+            gap: 25px;
+        }
+
+        /* 贴纸装饰块 */
+        .sticker {
+            border: var(--outline);
+            box-shadow: var(--shadow-small);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .sticker-1 {
+            grid-column: 1;
+            grid-row: 1;
+            background: var(--sticker-red);
+            color: var(--pure-white);
+            font-size: 42px;
+            padding: 20px 30px;
+            transform: rotate(-3deg);
+        }
+
+        .sticker-2 {
+            grid-column: 2;
+            grid-row: 1;
+            background: var(--sticker-blue);
+            color: var(--pure-white);
+            font-size: 32px;
+            padding: 20px 30px;
+            justify-self: end;
+            transform: rotate(2deg);
+        }
+
+        /* 主内容区 - Bento Grid */
+        .cover-main {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            background: var(--pure-white);
+            border: var(--outline);
+            box-shadow: var(--shadow);
+            padding: 60px 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .cover-title {
+            font-size: 105px;
+            font-weight: 900;
+            line-height: 1.05;
+            margin-bottom: 30px;
+            color: var(--pure-black);
+            text-transform: uppercase;
+            letter-spacing: -3px;
+        }
+
+        .title-highlight {
+            background: var(--acid-yellow);
+            padding: 0 15px;
+            display: inline;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+        }
+
+        .cover-subtitle {
+            font-size: 40px;
+            font-weight: 900;
+            color: var(--pure-white);
+            background: var(--pure-black);
+            padding: 16px 35px;
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border: 3px solid var(--pure-black);
+        }
+
+        /* 图片样式 - 统一尺寸和布局 */
+        .image-container {
+            width: 100%;
+            min-height: 280px;
+            max-height: 450px;
+            margin-top: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: var(--outline);
+            box-shadow: var(--shadow-small);
+            background: var(--off-white);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            background: var(--off-white);
+        }
+
+        /* 封面图片特殊样式 */
+        .cover-main .image-container {
+            min-height: 250px;
+            max-height: 380px;
+            margin-top: 30px;
+        }
+
+        /* 内容页图片 - 紧跟内容，不推到底部 */
+        .content-bento .image-container {
+            flex-shrink: 0;
+            min-height: 280px;
+            max-height: 420px;
+            margin-top: 30px;
+            margin-bottom: 20px;
+        }
+
+        /* 标签区 - Bento 底部 */
+        .cover-tags-row {
+            grid-column: 1 / -1;
+            grid-row: 3;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .cover-tag {
+            padding: 14px 24px;
+            background: var(--pure-white);
+            color: var(--pure-black);
+            border: var(--outline);
+            font-size: 24px;
+            font-weight: 900;
+            box-shadow: var(--shadow-small);
+            text-transform: uppercase;
+        }
+
+        .cover-tag:nth-child(1) { background: var(--sticker-red); color: var(--pure-white); }
+        .cover-tag:nth-child(2) { background: var(--acid-yellow); }
+        .cover-tag:nth-child(3) { background: var(--sticker-blue); color: var(--pure-white); }
+        .cover-tag:nth-child(4) { background: var(--sticker-green); }
+        .cover-tag:nth-child(5) { background: var(--sticker-pink); color: var(--pure-white); }
+
+        /* ==================== 内容卡片 ==================== */
+        .card-content {
+            background: var(--off-white);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 顶部标识栏 */
+        .section-bar {
+            height: 80px;
+            background: var(--acid-yellow);
+            border-bottom: var(--outline);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 40px;
+        }
+
+        .section-label {
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--pure-black);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        .section-marker {
+            width: 50px;
+            height: 50px;
+            background: var(--pure-black);
+            border: 3px solid var(--pure-white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 900;
+            color: var(--acid-yellow);
+        }
+
+        /* 轮换顶栏颜色 */
+        .card-content:nth-of-type(3n) .section-bar { background: var(--sticker-red); }
+        .card-content:nth-of-type(3n) .section-label { color: var(--pure-white); }
+        .card-content:nth-of-type(3n+1) .section-bar { background: var(--sticker-blue); }
+        .card-content:nth-of-type(3n+1) .section-label { color: var(--pure-white); }
+
+        /* Bento Grid 内容布局 */
+        .content-bento {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        /* 标题卡片 */
+        .title-card {
+            background: var(--pure-white);
+            border: var(--outline);
+            box-shadow: var(--shadow);
+            padding: 35px 40px;
+        }
+
+        .slide-title {
+            font-size: 62px;
+            font-weight: 900;
+            color: var(--pure-black);
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            line-height: 1.1;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .title-bar {
+            width: 20px;
+            height: 100%;
+            min-height: 60px;
+            background: var(--acid-yellow);
+            border: 4px solid var(--pure-black);
+            flex-shrink: 0;
+        }
+
+        /* 内容列表 - 网格贴纸风格 */
+        .content-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+        }
+
+        .content-item {
+            display: flex;
+            align-items: stretch;
+            background: var(--pure-white);
+            border: var(--outline);
+            box-shadow: var(--shadow-small);
+            overflow: hidden;
+        }
+
+        .content-item:nth-child(odd) {
+            background: var(--acid-yellow);
+        }
+
+        .item-number {
+            min-width: 70px;
+            background: var(--pure-black);
+            color: var(--acid-yellow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            font-weight: 900;
+            border-right: var(--outline);
+        }
+
+        .item-text {
+            flex: 1;
+            padding: 20px 25px;
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--pure-black);
+            line-height: 1.45;
+        }
+
+        /* 内容图片 */
+        .content-bento .image-container {
+            margin-top: auto;
+            min-height: 200px;
+            max-height: 350px;
+            border: var(--outline);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            background: var(--light-gray);
+        }
+
+        /* 要点较多时逐级压缩，避免 bento 内容溢出卡片 */
+        .card-content:has(.content-item:nth-child(7)) .content-grid {
+            gap: 14px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .item-text {
+            font-size: 31px;
+            line-height: 1.38;
+            padding: 15px 22px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .item-number {
+            min-width: 58px;
+            font-size: 29px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .content-bento {
+            gap: 20px;
+            padding: 28px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .title-card {
+            padding: 24px 30px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .slide-title {
+            font-size: 52px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .content-bento .image-container {
+            min-height: 150px;
+            max-height: 240px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-grid {
+            gap: 10px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .item-text {
+            font-size: 27px;
+            line-height: 1.34;
+            padding: 11px 18px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .item-number {
+            min-width: 48px;
+            font-size: 24px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-bento {
+            gap: 14px;
+            padding: 22px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .title-card {
+            padding: 18px 24px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .slide-title {
+            font-size: 44px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-bento .image-container {
+            min-height: 120px;
+            max-height: 190px;
+        }
+
+        /* 页码 - 贴纸风格 */
+        .page-sticker {
+            position: absolute;
+            bottom: 75px;
+            right: 45px;
+            min-width: 100px;
+            height: 100px;
+            background: var(--acid-yellow);
+            border: var(--outline);
+            box-shadow: var(--shadow-small);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(3deg);
+        }
+
+        .page-sticker-label {
+            font-size: 18px;
+            font-weight: 900;
+            color: var(--pure-black);
+            letter-spacing: 2px;
+            margin-bottom: 2px;
+        }
+
+        .page-sticker-num {
+            font-size: 46px;
+            font-weight: 900;
+            color: var(--pure-black);
+            line-height: 1;
+        }
+
+        /* 底部警示条 */
+        .bottom-stripe {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 45px;
+            background: repeating-linear-gradient(
+                -45deg,
+                var(--acid-yellow) 0px,
+                var(--acid-yellow) 20px,
+                var(--pure-black) 20px,
+                var(--pure-black) 40px
+            );
+            border-top: var(--outline);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Cover -->
+    <div class="card card-cover" id="card-1">
+        <div class="caution-stripe"></div>
+        <div class="cover-grid">
+            <div class="sticker sticker-1">HOT</div>
+            <div class="sticker sticker-2">MUST READ</div>
+            <div class="cover-main">
+                <h1 class="cover-title"><span class="title-highlight">{{ cover_title }}</span></h1>
+                <p class="cover-subtitle">{{ cover_subtitle }}</p>
+                {% if cover_image %}
+                <div class="image-container">
+                    <img class="card-image" src="{{ cover_image }}" alt="封面图片">
+                </div>
+                {% endif %}
+            </div>
+            <div class="cover-tags-row">
+                {% for tag in cover_tags %}
+                <span class="cover-tag">#{{ tag }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="caution-stripe-bottom"></div>
+    </div>
+
+    <!-- Content -->
+    {% for slide in slides %}
+    <div class="card card-content" id="card-{{ loop.index + 1 }}">
+        <div class="section-bar">
+            <span class="section-label">Section {{ loop.index }}</span>
+            <div class="section-marker">{{ loop.index }}</div>
+        </div>
+        <div class="content-bento">
+            <div class="title-card">
+                <h2 class="slide-title">
+                    <span class="title-bar"></span>
+                    {{ slide.title }}
+                </h2>
+            </div>
+            <div class="content-grid">
+                {% for item in slide.content %}
+                <div class="content-item">
+                    <div class="item-number">{{ loop.index }}</div>
+                    <div class="item-text">{{ item }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% if slide.image %}
+            <div class="image-container">
+                <img class="card-image" src="{{ slide.image }}" alt="内容图片">
+            </div>
+            {% endif %}
+        </div>
+        <div class="page-sticker">
+            <span class="page-sticker-label">PAGE</span>
+            <span class="page-sticker-num">{{ loop.index }}</span>
+        </div>
+        <div class="bottom-stripe"></div>
+    </div>
+    {% endfor %}
+</body>
+
+</html>

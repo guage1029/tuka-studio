@@ -13,7 +13,7 @@
         }
 
         body {
-            font-family: 'PingFang SC', -apple-system, sans-serif;
+            font-family: 'PingFang SC', -apple-system, 'Noto Sans SC', sans-serif;
             background: linear-gradient(135deg, #2C2C2C 0%, #1a1a1a 100%);
             padding: 60px;
             display: flex;
@@ -105,7 +105,7 @@
             left: 0;
             width: 100%;
             text-align: center;
-            font-family: 'Bradley Hand', 'Chalkboard SE', cursive;
+            font-family: 'Bradley Hand', 'Chalkboard SE', 'Noto Sans SC', cursive;
             color: #333;
             font-size: 50px;
             transform: rotate(-1deg);
@@ -138,11 +138,6 @@
             text-align: center;
             padding: 0 20px;
         }
-            font-size: 36px;
-            color: #666;
-            text-align: center;
-            padding: 0 40px;
-        }
 
         .cover-tags {
             margin-top: 40px;
@@ -167,9 +162,9 @@
         /* 图片样式 - 统一尺寸和布局 */
         .image-container {
             width: 100%;
-            flex: 1;
+            flex: 1 1 auto;
             min-height: 300px;
-            max-height: 500px;
+            max-height: 620px;
             margin-top: 50px;
             display: flex;
             align-items: center;
@@ -193,7 +188,77 @@
             display: flex;
             flex-direction: column;
             gap: 40px;
-            flex: 0 0 auto;
+            /* 可收缩，避免长要点把插图挤出卡片 */
+            flex: 0 1 auto;
+            min-height: 0;
+        }
+
+        /* 无图时撑满剩余高度，消除底部死区 */
+        .card-content:not(:has(.image-container)) .content-list {
+            flex: 1 1 auto;
+            justify-content: space-evenly;
+        }
+
+        /* 5 条要点 + 插图时的中间档 */
+        .card-content:has(.content-item:nth-child(5)) .content-list {
+            gap: 28px;
+            padding: 48px;
+        }
+
+        .card-content:has(.content-item:nth-child(5)) .content-item {
+            font-size: 35px;
+            line-height: 1.45;
+            padding-bottom: 16px;
+        }
+
+        .card-content:has(.content-item:nth-child(5)) .slide-title {
+            font-size: 52px;
+        }
+
+        .card-content:has(.content-item:nth-child(5)) .image-container {
+            min-height: 220px;
+            max-height: 360px;
+        }
+
+        /* 7 条以上逐级压缩 */
+        .card-content:has(.content-item:nth-child(7)) .content-list {
+            gap: 20px;
+            padding: 40px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .content-item {
+            font-size: 30px;
+            line-height: 1.42;
+            padding-bottom: 13px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .slide-title {
+            font-size: 46px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .image-container {
+            min-height: 195px;
+            max-height: 290px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-list {
+            gap: 15px;
+            padding: 34px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-item {
+            font-size: 26px;
+            line-height: 1.4;
+            padding-bottom: 11px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .slide-title {
+            font-size: 40px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .image-container {
+            min-height: 120px;
+            max-height: 195px;
         }
 
         .content-item {
@@ -203,6 +268,14 @@
             border-bottom: 1px dashed #CCC;
             padding-bottom: 20px;
         }
+        .card-cover:has(.image-container) .cover-title { font-size: 80px; margin-bottom: 24px; }
+        .card-cover:has(.image-container) .cover-subtitle { font-size: 30px; }
+        .card-cover:has(.image-container) .cover-tags { margin-top: 24px; gap: 12px; }
+        .card-cover:has(.image-container) .cover-tag { font-size: 20px; padding: 8px 16px; }
+        .card-cover .image-container { min-height: 220px; margin-top: 24px; }
+        .card-content:has(.image-container):has(.content-item:nth-child(5)) .content-list { flex: 0 0 auto; padding: 36px; gap: 16px; }
+        .card-content:has(.image-container):has(.content-item:nth-child(5)) .content-item { font-size: 30px; line-height: 1.4; padding-bottom: 12px; }
+        .card-content:has(.image-container):has(.content-item:nth-child(5)) .slide-title { font-size: 44px; margin-bottom: 24px; }
     </style>
 </head>
 

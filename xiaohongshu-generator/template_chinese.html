@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Songti SC', 'Noto Serif SC', 'SimSun', serif;
+            font-family: 'Songti SC', 'Noto Serif SC', 'SimSun', 'Noto Sans SC', serif;
             background: #C04851;
             padding: 40px;
             display: flex;
@@ -116,16 +116,16 @@
             border-radius: 6px;
             font-size: 26px;
             font-weight: 600;
-            color: #C04851;
+            color: #A63A42; /* 原 #C04851 在 #F7E9E6 上仅 4.14:1 */
             letter-spacing: 2px;
         }
 
         /* 图片样式 - 统一尺寸和布局 */
         .image-container {
             width: 100%;
-            flex: 1;
+            flex: 1 1 auto;
             min-height: 300px;
-            max-height: 500px;
+            max-height: 660px;
             margin-top: 50px;
             display: flex;
             align-items: center;
@@ -161,7 +161,7 @@
 
         .slide-number {
             font-size: 38px;
-            color: #C04851;
+            color: #A63A42; /* 原 #C04851 在 #F7E9E6 上仅 4.14:1 */
             margin-bottom: 28px;
             letter-spacing: 3px;
         }
@@ -182,12 +182,76 @@
         }
 
         .content-wrapper {
-            flex: 0 0 auto;
+            /* 可收缩，避免长要点把插图挤出卡片 */
+            flex: 0 1 auto;
+            min-height: 0;
             display: flex;
             flex-direction: column;
             gap: 32px;
             position: relative;
             z-index: 1;
+        }
+
+        /* 无图时撑满剩余高度，消除底部死区 */
+        .card-content:not(:has(.image-container)) .content-wrapper {
+            flex: 1 1 auto;
+            justify-content: space-evenly;
+        }
+
+        /* 5 条要点 + 插图时的中间档 */
+        .card-content:has(.content-item:nth-child(5)) .content-wrapper {
+            gap: 24px;
+        }
+
+        .card-content:has(.content-item:nth-child(5)) .content-item {
+            padding: 26px 34px;
+        }
+
+        .card-content:has(.content-item:nth-child(5)) .content-text {
+            font-size: 33px;
+            line-height: 1.65;
+        }
+
+        .card-content:has(.content-item:nth-child(5)) .image-container {
+            min-height: 200px;
+            max-height: 340px;
+        }
+
+        /* 7 条以上逐级压缩 */
+        .card-content:has(.content-item:nth-child(7)) .content-wrapper {
+            gap: 18px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .content-item {
+            padding: 20px 30px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .content-text {
+            font-size: 29px;
+            line-height: 1.6;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .image-container {
+            min-height: 175px;
+            max-height: 270px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-wrapper {
+            gap: 13px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-item {
+            padding: 15px 26px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-text {
+            font-size: 26px;
+            line-height: 1.55;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .image-container {
+            min-height: 110px;
+            max-height: 180px;
         }
 
         .content-item {
@@ -200,7 +264,7 @@
 
         .content-text {
             font-size: 36px;
-            line-height: 1.85;
+            line-height: 1.7;
             color: #3D2817;
             letter-spacing: 1px;
         }
@@ -214,6 +278,13 @@
             color: #5D4037;
             letter-spacing: 2px;
         }
+        .card-cover:has(.image-container) .cover-title { font-size: 84px; margin-bottom: 24px; }
+        .card-cover:has(.image-container) .cover-subtitle { font-size: 32px; }
+        .card-cover:has(.image-container) .cover-seal { margin-bottom: 24px; }
+        .card-cover:has(.image-container) .cover-divider { margin-bottom: 24px; }
+        .card-cover:has(.image-container) .cover-tags { margin-top: 24px; gap: 12px; }
+        .card-cover:has(.image-container) .cover-tag { font-size: 20px; padding: 8px 16px; }
+        .card-cover .image-container { height: 300px; margin-top: 24px; }
     </style>
 </head>
 <body>

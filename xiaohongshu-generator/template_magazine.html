@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>杂志风</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', 'PingFang SC', 'Noto Sans SC', sans-serif;
+            background: #1a1a1a;
+            padding: 40px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            justify-content: center;
+        }
+
+        .card {
+            width: 1242px;
+            height: 1660px;
+            background: #FFFFFF;
+            overflow: hidden;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        /* 封面样式 */
+        .card-cover {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cover-header {
+            background: #000;
+            padding: 30px 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .magazine-logo {
+            font-size: 48px;
+            font-weight: 900;
+            color: #FFF;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+        }
+
+        .magazine-date {
+            font-size: 24px;
+            color: #888;
+            letter-spacing: 2px;
+        }
+
+        .cover-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 80px;
+            background: linear-gradient(180deg, #F8F8F8 0%, #FFFFFF 100%);
+        }
+
+        .cover-title {
+            font-size: 120px;
+            font-weight: 900;
+            color: #000;
+            line-height: 1.1;
+            text-align: center;
+            margin-bottom: 40px;
+            letter-spacing: -3px;
+        }
+
+        .cover-subtitle {
+            font-size: 36px;
+            color: #666;
+            text-align: center;
+            font-weight: 300;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+            padding: 20px 40px;
+        }
+
+        .cover-tags {
+            margin-top: 50px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .cover-tag {
+            padding: 12px 30px;
+            background: #000;
+            color: #FFF;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* 图片样式 */
+        .image-container {
+            width: 100%;
+            flex: 1 1 auto;
+            min-height: 300px;
+            max-height: 660px;
+            margin-top: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: grayscale(20%);
+        }
+
+        .cover-footer {
+            background: #000;
+            padding: 25px 60px;
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+        }
+
+        .footer-item {
+            color: #FFF;
+            font-size: 20px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        /* 内容页样式 */
+        .card-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-header {
+            background: #000;
+            padding: 40px 60px;
+            position: relative;
+        }
+
+        .section-number {
+            position: absolute;
+            top: 30px;
+            right: 60px;
+            font-size: 120px;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.1);
+            line-height: 1;
+        }
+
+        .header-title {
+            font-size: 52px;
+            font-weight: 800;
+            color: #FFF;
+            letter-spacing: 2px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .content-body {
+            flex: 1;
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .magazine-item {
+            padding: 40px 0;
+            border-bottom: 1px solid #E0E0E0;
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            /* 可收缩，避免长要点把插图挤出卡片 */
+            flex: 0 1 auto;
+            min-height: 0;
+        }
+
+        /* 无图时撑满剩余高度，消除底部死区 */
+        .content-body:not(:has(.image-container)) {
+            justify-content: space-evenly;
+        }
+
+        /* 恰好 3 条要点 + 插图时的轻压缩 */
+        .card-content:has(.magazine-item:nth-child(3)):not(:has(.magazine-item:nth-child(4))):has(.image-container) .magazine-item {
+            padding: 32px 0;
+        }
+
+        .card-content:has(.magazine-item:nth-child(3)):not(:has(.magazine-item:nth-child(4))):has(.image-container) .item-text {
+            font-size: 33px;
+            line-height: 1.62;
+        }
+
+        /* 5 条要点 + 插图时的中间档 */
+        .card-content:has(.magazine-item:nth-child(5)) .magazine-item {
+            padding: 30px 0;
+        }
+
+        .card-content:has(.magazine-item:nth-child(5)) .item-text {
+            font-size: 33px;
+            line-height: 1.6;
+        }
+
+        .card-content:has(.magazine-item:nth-child(5)) .item-number {
+            font-size: 52px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(5)) .image-container {
+            min-height: 200px;
+            max-height: 340px;
+        }
+
+        /* 7 条以上逐级压缩 */
+        .card-content:has(.magazine-item:nth-child(7)) .magazine-item {
+            padding: 17px 0;
+        }
+
+        .card-content:has(.magazine-item:nth-child(7)) .item-text {
+            font-size: 28px;
+            line-height: 1.5;
+        }
+
+        .card-content:has(.magazine-item:nth-child(7)) .item-number {
+            font-size: 44px;
+            min-width: 62px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(7)) .content-body {
+            padding: 40px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(7)) .content-header {
+            padding: 20px 60px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(7)) .header-title {
+            font-size: 42px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(7)) .image-container {
+            min-height: 140px;
+            max-height: 235px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(9)) .magazine-item {
+            padding: 14px 0;
+        }
+
+        .card-content:has(.magazine-item:nth-child(9)) .item-text {
+            font-size: 25px;
+            line-height: 1.5;
+        }
+
+        .card-content:has(.magazine-item:nth-child(9)) .item-number {
+            font-size: 36px;
+            min-width: 50px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(9)) .content-body {
+            padding: 30px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(9)) .content-header {
+            padding: 14px 60px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(9)) .header-title {
+            font-size: 34px;
+        }
+
+        .card-content:has(.magazine-item:nth-child(9)) .image-container {
+            min-height: 100px;
+            max-height: 170px;
+        }
+
+        .magazine-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-number {
+            font-size: 60px;
+            font-weight: 900;
+            /* 原 #E0E0E0 在白底仅 1.32:1 */
+            color: #8E8E93;
+            line-height: 1;
+            min-width: 80px;
+        }
+
+        .item-text {
+            font-size: 36px;
+            color: #333;
+            line-height: 1.7;
+            flex: 1;
+        }
+
+        /* 引用样式 */
+        .pull-quote {
+            background: #F5F5F5;
+            padding: 50px;
+            margin: 30px 0;
+            border-left: 6px solid #000;
+        }
+
+        .pull-quote-text {
+            font-size: 42px;
+            font-weight: 600;
+            color: #000;
+            font-style: italic;
+            line-height: 1.5;
+        }
+
+        /* 页脚 */
+        .content-footer {
+            background: #F5F5F5;
+            padding: 30px 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-indicator {
+            font-size: 24px;
+            font-weight: 700;
+            color: #000;
+            letter-spacing: 4px;
+        }
+
+        .footer-line {
+            flex: 1;
+            height: 2px;
+            background: #000;
+            margin: 0 40px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Cover -->
+    <div class="card card-cover" id="card-1">
+        <div class="cover-header">
+            <div class="magazine-logo">INSIGHT</div>
+            <div class="magazine-date">VOL.01 / 2026</div>
+        </div>
+        
+        <div class="cover-main">
+            <h1 class="cover-title">{{ cover_title }}</h1>
+            <div class="cover-subtitle">{{ cover_subtitle }}</div>
+            
+            {% if cover_image %}
+            <div class="image-container">
+                <img class="card-image" src="{{ cover_image }}" alt="封面图片">
+            </div>
+            {% endif %}
+            
+            <div class="cover-tags">
+                {% for tag in cover_tags %}
+                <span class="cover-tag">{{ tag }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="cover-footer">
+            <span class="footer-item">Lifestyle</span>
+            <span class="footer-item">Culture</span>
+            <span class="footer-item">Trends</span>
+        </div>
+    </div>
+
+    <!-- Content -->
+    {% for slide in slides %}
+    <div class="card card-content" id="card-{{ loop.index + 1 }}">
+        <div class="content-header">
+            <span class="section-number">{{ '%02d' % loop.index }}</span>
+            <h2 class="header-title">{{ slide.title }}</h2>
+        </div>
+        
+        <div class="content-body">
+            {% for item in slide.content %}
+            <div class="magazine-item">
+                <span class="item-number">{{ loop.index }}</span>
+                <div class="item-text">{{ item }}</div>
+            </div>
+            {% endfor %}
+            {% if slide.image %}
+            <div class="image-container">
+                <img class="card-image" src="{{ slide.image }}" alt="内容图片">
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="content-footer">
+            <span class="page-indicator">PAGE {{ loop.index }}</span>
+            <div class="footer-line"></div>
+            <span class="page-indicator">{{ slides|length }}</span>
+        </div>
+    </div>
+    {% endfor %}
+</body>
+
+</html>

@@ -13,7 +13,7 @@
         }
 
         body {
-            font-family: -apple-system, 'SF Pro Display', 'PingFang SC', sans-serif;
+            font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Noto Sans SC', sans-serif;
             background: #1a1a2e;
             padding: 40px;
             display: flex;
@@ -123,9 +123,9 @@
         /* 图片样式 */
         .image-container {
             width: 100%;
-            flex: 1;
+            flex: 1 1 auto;
             min-height: 280px;
-            max-height: 480px;
+            max-height: 640px;
             margin-top: 50px;
             display: flex;
             align-items: center;
@@ -192,7 +192,131 @@
             display: flex;
             flex-direction: column;
             gap: 24px;
-            flex: 0 0 auto;
+            /* 可收缩，避免长要点把插图与页码挤出卡片 */
+            flex: 0 1 auto;
+            min-height: 0;
+        }
+
+        /* 无图时撑满剩余高度，消除底部死区 */
+        .content-card:not(:has(.image-container)) .content-list {
+            flex: 1 1 auto;
+            justify-content: space-evenly;
+        }
+
+        /* 5 条长要点 + 插图时轻微压缩即可容纳 */
+        .content-card:has(.content-item:nth-child(5)) .content-list {
+            gap: 18px;
+        }
+
+        .content-card:has(.content-item:nth-child(5)) .content-item {
+            padding: 22px 28px;
+        }
+
+        .content-card:has(.content-item:nth-child(5)) .content-text {
+            font-size: 33px;
+            line-height: 1.44;
+        }
+
+        .content-card:has(.content-item:nth-child(5)) .slide-header {
+            margin-bottom: 36px;
+        }
+
+        .content-card:has(.content-item:nth-child(5)) .image-container {
+            min-height: 220px;
+            max-height: 620px;
+        }
+
+        /* 要点较多时逐级压缩间距与内边距 */
+        .content-card:has(.content-item:nth-child(7)) .content-list {
+            gap: 16px;
+        }
+
+        .content-card:has(.content-item:nth-child(7)) .content-item {
+            padding: 18px 26px;
+        }
+
+        .content-card:has(.content-item:nth-child(7)) .content-text {
+            font-size: 32px;
+            line-height: 1.42;
+        }
+
+        .content-card:has(.content-item:nth-child(7)) .slide-header {
+            margin-bottom: 32px;
+        }
+
+        .content-card:has(.content-item:nth-child(7)) .image-container {
+            min-height: 170px;
+            max-height: 560px;
+        }
+
+        .content-card:has(.content-item:nth-child(9)) .content-list {
+            gap: 12px;
+        }
+
+        .content-card:has(.content-item:nth-child(9)) .content-item {
+            padding: 15px 22px;
+        }
+
+        .content-card:has(.content-item:nth-child(9)) .content-text {
+            font-size: 28px;
+            line-height: 1.38;
+        }
+
+        .content-card:has(.content-item:nth-child(9)) .slide-header {
+            margin-bottom: 24px;
+        }
+
+        .content-card:has(.content-item:nth-child(9)) .slide-title {
+            font-size: 46px;
+        }
+
+        .content-card:has(.content-item:nth-child(9)) .image-container {
+            min-height: 120px;
+            max-height: 200px;
+        }
+
+        /* 有插图时文本区必须让位，否则插图与页码被挤出卡片 */
+        .content-card:has(.image-container) .content-list {
+            flex: 0 1 auto;
+        }
+
+        .content-card:has(.image-container):has(.content-item:nth-child(5)) .content-item {
+            padding: 18px 24px;
+        }
+
+        .content-card:has(.image-container):has(.content-item:nth-child(5)) .content-text {
+            font-size: 30px;
+            line-height: 1.4;
+        }
+
+        .content-card:has(.image-container):has(.content-item:nth-child(5)) .slide-header {
+            margin-bottom: 28px;
+        }
+
+        .content-card:has(.image-container):has(.content-item:nth-child(7)) .content-list {
+            gap: 12px;
+        }
+
+        .content-card:has(.image-container):has(.content-item:nth-child(7)) .content-item {
+            padding: 13px 20px;
+        }
+
+        .content-card:has(.image-container):has(.content-item:nth-child(7)) .content-text {
+            font-size: 27px;
+            line-height: 1.36;
+        }
+
+        .content-card:has(.image-container):has(.content-item:nth-child(7)) .slide-header {
+            margin-bottom: 22px;
+        }
+
+        .content-card:has(.image-container):has(.content-item:nth-child(7)) .slide-title {
+            font-size: 46px;
+        }
+
+        .content-card:has(.image-container):has(.content-item:nth-child(7)) .content-card,
+        .content-card:has(.image-container):has(.content-item:nth-child(7)) {
+            padding: 52px;
         }
 
         .content-item {

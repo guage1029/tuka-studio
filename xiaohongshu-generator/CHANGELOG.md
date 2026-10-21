@@ -27,7 +27,7 @@
 所有 9 个风格模板的图片布局已优化：
 1. ✅ xiaohongshu（小红书风格）
 2. ✅ apple（Apple 极简风）
-3. ✅ dopamine（多巴胺风格）
+3. ✅ neobrutalist（新粗野风格）
 4. ✅ capsule（胶囊科技风）
 5. ✅ tech（科技风）
 6. ✅ notion（Notion 效率风）
@@ -102,7 +102,7 @@
 所有 9 个风格模板都已更新支持动态标签：
 1. ✅ xiaohongshu（小红书风格）
 2. ✅ apple（Apple 极简风）
-3. ✅ dopamine（多巴胺风格）
+3. ✅ neobrutalist（新粗野风格）
 4. ✅ capsule（胶囊科技风）
 5. ✅ tech（科技风）
 6. ✅ notion（Notion 效率风）

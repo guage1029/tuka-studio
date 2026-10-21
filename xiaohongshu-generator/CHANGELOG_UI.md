@@ -2,6 +2,75 @@
 
 ## 版本历史
 
+### v1.3.0 - 2026-02-07
+**图片上传体验优化**
+
+#### 问题
+- 图片上传区域没有显示推荐尺寸，用户不清楚应该上传多大的图片
+- 编辑页面的图片预览效果与实际生成效果不一致
+- 用户只能盲目地上传-测试-删除-再上传，体验很差
+
+#### 解决方案
+
+**1. 添加推荐尺寸提示**
+```html
+<div class="image-size-hint">
+    推荐尺寸：<strong>1200 × 500 px</strong>（横向构图最佳）
+</div>
+```
+
+**2. 改进图片预览效果**
+- 使用 `aspect-ratio: 1200 / 400` 模拟实际卡片中的图片显示比例
+- 使用 `object-fit: cover` 与实际生成效果一致的裁剪方式
+- 添加"✨ 实际效果预览"标签，明确告知用户这是真实效果
+
+**3. 优化上传区交互**
+- 添加 hover 和 dragover 状态的视觉反馈
+- 改进整体视觉设计，使用渐变背景
+
+#### CSS 实现
+```css
+/* 图片预览容器 - 模拟实际效果 */
+.image-preview-container {
+    aspect-ratio: 1200 / 400;
+    overflow: hidden;
+}
+
+.image-preview-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* 预览效果标签 */
+.preview-effect-label {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.65);
+    color: white;
+}
+
+/* 推荐尺寸提示 */
+.image-size-hint {
+    background: rgba(102, 126, 234, 0.08);
+    color: #888;
+}
+
+.image-size-hint strong {
+    color: #667eea;
+}
+```
+
+#### 效果
+- ✅ 用户清楚知道应该上传什么尺寸的图片（1200 × 500 px）
+- ✅ 预览效果与实际生成效果一致（使用相同的裁剪方式）
+- ✅ "实际效果预览"标签让用户放心，所见即所得
+- ✅ 拖拽上传有明显的视觉反馈
+- ✅ 不再需要盲目地试错
+
+---
+
 ### v1.2.0 - 2024-01-01
 **输入框固定高度优化**
 

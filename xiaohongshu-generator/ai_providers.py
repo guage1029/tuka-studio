@@ -1,723 +1,139 @@
-#!/usr/bin/env python3
-"""
-多提供商 AI 接入层（Gemini / MiniMax / DeepSeek）
-
-设计要点：
-1. 统一入口 generate_json(prompt, temperature) -> str，屏蔽各厂商 SDK/HTTP 差异
-2. 配置持久化到 ai_config.json（权限 600，不入库），兼容 config.py 里的旧配置
-3. 错误分类可读：区分鉴权失败 / 配额耗尽 / 限流 / 模型不存在 / 网络故障 / 服务不可用，
-   不再把所有 ResourceExhausted 统一提示成"配额或频率问题"
-"""
-
+"""Domestic providers with fixed endpoints and request-scoped credentials."""
 import json
-import os
 import re
-import stat
-import tempfile
-import time
-from pathlib import Path
+from safe_http import RequestError, safe_request
 
-import requests
+AIProviderError = RequestError
+REQUEST_TIMEOUT = 60
 
-import config
 
-REQUEST_TIMEOUT = 120
-CONFIG_PATH = Path(__file__).resolve().parent / "ai_config.json"
-
-# 生成正文的默认额度。推理模型（M3 / M2.x）的思考长度不可预测：实测同一个
-# 提示词有时几百 token 就结束，有时思考直接吃掉 8192 全部额度导致正文为空。
-# 给到 32768 留足余量；按实际输出 token 计费，额度调大不会多花钱。
-DEFAULT_MAX_OUTPUT_TOKENS = 32768
-# 首次额度被思考占满时，重试一次并放大到这个上限。
-TOKEN_RETRY_CEILING = 65536
-# 额度放大后必须同步放大超时，否则大额度请求会先超时、反而更拿不到结果。
-# MiniMax-M3 实测约 44 tok/s，这里按 20 tok/s 保守估算并封顶。
-TOKEN_TIMEOUT_DIVISOR = 20
-MAX_REQUEST_TIMEOUT = 900
-
+# Checked against official documentation on 2026-10-21; see PROVIDERS.md.
 PROVIDERS = {
-    "gemini": {
-        "label": "Google Gemini",
-        "kind": "gemini",
-        "docs": "https://ai.google.dev/gemini-api/docs",
-        "models": [
-            "gemini-2.5-flash",
-            "gemini-2.5-flash-lite",
-            "gemini-flash-latest",
-            "gemini-2.5-pro",
-            "gemini-2.0-flash",
-        ],
-    },
-    "minimax": {
-        "label": "MiniMax",
-        "kind": "openai_compatible",
-        # MiniMax 按站点分区发 Key：国内站 Key 只认 api.minimaxi.com，
-        # 国际站 Key 只认 api.minimax.io，选错会直接 401 invalid api key。
-        # 默认国内站，鉴权失败时自动回退国际站一次。
-        "base_url": "https://api.minimaxi.com/v1",
-        "alt_base_urls": ["https://api.minimax.io/v1"],
-        # 让思考单独进 reasoning_content 字段，content 只剩正文，
-        # 避免思考被内联进 JSON 导致解析失败。全系列实测都接受该参数。
-        "reasoning_split": True,
-        "docs": "https://platform.minimaxi.com/docs/api-reference/text-chat-openai",
-        "models": [
-            "MiniMax-M3",
-            "MiniMax-M2.7",
-            "MiniMax-M2.7-highspeed",
-            "MiniMax-M2.5",
-            "MiniMax-M2.5-highspeed",
-            "MiniMax-M2.1",
-            "MiniMax-M2.1-highspeed",
-            "MiniMax-M2",
-        ],
-    },
-    "deepseek": {
-        "label": "DeepSeek",
-        "kind": "openai_compatible",
-        "base_url": "https://api.deepseek.com",
-        "docs": "https://api-docs.deepseek.com/",
-        "models": [
-            "deepseek-v4-pro",
-            "deepseek-v4-flash",
-            "deepseek-flash",
-        ],
-    },
+    'deepseek': {'name': 'DeepSeek', 'protocol': 'openai', 'base_url': 'https://api.deepseek.com',
+                 'models_path': '/models', 'prefixes': ('deepseek-',)},
+    'minimax': {'name': 'MiniMax', 'protocol': 'anthropic', 'base_url': 'https://api.minimax.cn/anthropic/v1',
+                'models': ('MiniMax-M3', 'MiniMax-M3.1-Flash')},
+    'kimi': {'name': 'Kimi（月之暗面）', 'protocol': 'openai', 'base_url': 'https://api.moonshot.cn/v1',
+             'models_path': '/models', 'prefixes': ('kimi-', 'moonshot-')},
+    'zhipu': {'name': '智谱 GLM', 'protocol': 'openai', 'base_url': 'https://open.bigmodel.cn/api/paas/v4',
+              'models': ('glm-5.3', 'glm-5.3-flash', 'glm-5.3-flashx', 'glm-5.2', 'glm-4.7-flash', 'glm-4.5-flash')},
+    'doubao': {'name': '豆包（火山方舟）', 'protocol': 'openai', 'base_url': 'https://ark.cn-beijing.volces.com/api/v3',
+               'models': ('doubao-seed-2-1-lite-260915', 'doubao-seed-2-1-pro-260915',
+                          'doubao-seed-2-1-turbo-260628', 'doubao-seed-2-0-mini-260428')},
 }
-
-DEFAULT_PROVIDER = "gemini"
-DEFAULT_MODEL = {
-    "gemini": "gemini-2.5-flash",
-    "minimax": "MiniMax-M2.5",
-    "deepseek": "deepseek-v4-flash",
-}
+CATALOG_DATE = '2026-10-21'
+MODEL_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,199}\Z')
 
 
-class AIProviderError(RuntimeError):
-    """带分类和可操作提示的 AI 调用异常"""
-
-    def __init__(self, code: str, message: str, detail: str = "", status: int = None):
-        super().__init__(message)
-        self.code = code
-        self.detail = detail
-        self.status = status
-
-    def to_dict(self) -> dict:
-        return {
-            "code": self.code,
-            "error": str(self),
-            "detail": self.detail,
-            "status": self.status,
-        }
+def validate_credentials(provider, api_key):
+    if not isinstance(provider, str) or provider not in PROVIDERS:
+        raise RequestError('bad_request')
+    if (not isinstance(api_key, str) or not 1 <= len(api_key) <= 512
+            or not all(33 <= ord(c) <= 126 for c in api_key)):
+        raise RequestError('bad_request')
+    return PROVIDERS[provider]
 
 
-# --------------------------------------------------------------------------
-# 配置持久化
-# --------------------------------------------------------------------------
-
-def _default_config() -> dict:
-    return {
-        "provider": DEFAULT_PROVIDER,
-        "models": {},
-        "api_keys": {},
-    }
+def valid_model(provider, model):
+    if not isinstance(model, str) or not MODEL_ID.fullmatch(model):
+        return False
+    if 'models' in provider:
+        return model in provider['models']
+    return model.startswith(provider['prefixes']) and not any(
+        word in model.lower() for word in ('embedding', 'rerank', 'audio', 'tts', 'whisper'))
 
 
-def load_config() -> dict:
-    """读取已保存的 AI 配置；文件损坏时回退到默认结构而不是崩溃"""
-    data = _default_config()
-    if CONFIG_PATH.exists():
-        try:
-            stored = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return data
-        if isinstance(stored, dict):
-            for key in ("provider", "models", "api_keys"):
-                if isinstance(stored.get(key), type(data[key])):
-                    data[key] = stored[key]
-    if data["provider"] not in PROVIDERS:
-        data["provider"] = DEFAULT_PROVIDER
-    data["models"] = {k: v for k, v in data["models"].items() if k in PROVIDERS}
-    data["api_keys"] = {k: v for k, v in data["api_keys"].items() if k in PROVIDERS and v}
-    return data
+def validate_config(config):
+    if not isinstance(config, dict) or set(config) != {'provider', 'api_key', 'model'}:
+        raise RequestError('bad_request')
+    provider = validate_credentials(config['provider'], config['api_key'])
+    if not valid_model(provider, config['model']):
+        raise RequestError('bad_request')
+    return dict(config)
 
 
-def save_config(data: dict) -> None:
-    """原子写入配置文件并收紧权限（默认 umask 下 json 文件会是 644，密钥不能那样放）"""
-    payload = {
-        "provider": data.get("provider", DEFAULT_PROVIDER),
-        "models": {k: v for k, v in (data.get("models") or {}).items() if k in PROVIDERS},
-        "api_keys": {k: v for k, v in (data.get("api_keys") or {}).items() if k in PROVIDERS and v},
-    }
-    fd, tmp_path = tempfile.mkstemp(dir=str(CONFIG_PATH.parent), prefix=".ai_config-")
+def check_status(status):
+    if status != 200:
+        code = {400: 'provider_rejected', 401: 'auth_failed', 402: 'insufficient_balance',
+                403: 'auth_failed', 404: 'model_not_found', 422: 'provider_rejected',
+                408: 'timeout', 429: 'rate_limited'}.get(status,
+                       'service_unavailable' if status >= 500 else 'bad_response')
+        raise RequestError(code)
+
+
+def list_models(provider_id, api_key):
+    provider = validate_credentials(provider_id, api_key)
+    if 'models' in provider:
+        # shortcut: no documented API-Key-only discovery; update the public catalog when providers change it.
+        return {'models': list(provider['models']), 'source': 'catalog', 'updated': CATALOG_DATE,
+                'message': f'官方预置目录 · 更新于 {CATALOG_DATE}。不是账户可用列表，Key 和模型权限在生成时校验。'}
+    status, _, raw = safe_request(provider['base_url'] + provider['models_path'],
+        headers={'Authorization': 'Bearer ' + api_key}, timeout=15)
+    check_status(status)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2)
-        os.chmod(tmp_path, stat.S_IRUSR | stat.S_IWUSR)
-        os.replace(tmp_path, CONFIG_PATH)
-    except BaseException:
-        Path(tmp_path).unlink(missing_ok=True)
-        raise
-
-
-def mask_key(key: str) -> str:
-    """只回显末 4 位，绝不返回明文"""
-    if not key:
-        return ""
-    if len(key) <= 8:
-        return "*" * len(key)
-    return f"{'*' * 8}{key[-4:]}"
-
-
-def get_api_key(provider: str, override: str = None) -> str:
-    """取 Key：临时传入 > 已保存 > config.py 旧配置"""
-    if override and override.strip():
-        return override.strip()
-    saved = load_config()["api_keys"].get(provider, "")
-    if saved:
-        return saved
-    if provider == "gemini":
-        return getattr(config, "GEMINI_API_KEY", "") or ""
-    return ""
-
-
-def get_model(provider: str, override: str = None) -> str:
-    """取模型名：临时传入 > 已保存 > 内置默认"""
-    if override and override.strip():
-        return override.strip()
-    saved = load_config()["models"].get(provider)
-    if saved:
-        return saved
-    return DEFAULT_MODEL.get(provider, PROVIDERS[provider]["models"][0])
-
-
-def active_provider() -> str:
-    return load_config()["provider"]
-
-
-def provider_public_info() -> list:
-    """给前端用的提供商清单：只包含是否已配置 Key 和脱敏值"""
-    saved = load_config()
-    info = []
-    for pid, meta in PROVIDERS.items():
-        key = get_api_key(pid)
-        info.append({
-            "id": pid,
-            "label": meta["label"],
-            "kind": meta["kind"],
-            "models": meta["models"],
-            "docs": meta["docs"],
-            "has_key": bool(key),
-            "key_masked": mask_key(key),
-            "model": get_model(pid),
-            "is_active": pid == saved["provider"],
-        })
-    return info
-
-
-# --------------------------------------------------------------------------
-# 错误分类
-# --------------------------------------------------------------------------
-
-def _truncate(text: str, limit: int = 400) -> str:
-    text = (text or "").strip()
-    return text[:limit]
-
-
-def _classify_status(status: int, body: str, label: str, model: str) -> AIProviderError:
-    """把 HTTP 状态码 + 响应体翻译成具体原因"""
-    blob = body or ""
-    lowered = blob.lower()
-
-    if status in (401, 403):
-        return AIProviderError(
-            "auth_failed",
-            f"{label} 鉴权失败：API Key 无效、已过期或未开通该模型权限。",
-            _truncate(blob),
-            status,
-        )
-    if status == 402 or "insufficient balance" in lowered or "insufficient_balance" in lowered:
-        return AIProviderError(
-            "insufficient_balance",
-            f"{label} 账户余额不足，请充值后再试。",
-            _truncate(blob),
-            status,
-        )
-    if status == 429:
-        if "quota" in lowered or "exceeded" in lowered or "rate limit" in lowered:
-            return AIProviderError(
-                "quota_exhausted",
-                f"{label} 配额已用尽或触发限流，请稍后重试或更换模型。",
-                _truncate(blob),
-                status,
-            )
-        return AIProviderError(
-            "rate_limited",
-            f"{label} 请求过于频繁（429），请降低并发或稍后重试。",
-            _truncate(blob),
-            status,
-        )
-    if status == 404:
-        return AIProviderError(
-            "model_not_found",
-            f"{label} 返回 404：模型名或接口地址不正确。当前模型：{model}",
-            _truncate(blob),
-            status,
-        )
-    if status == 400:
-        return AIProviderError(
-            "bad_request",
-            f"{label} 拒绝了该请求（400），通常是模型名不支持或参数不被接受。",
-            _truncate(blob),
-            status,
-        )
-    if status >= 500:
-        return AIProviderError(
-            "service_unavailable",
-            f"{label} 服务端异常（{status}），通常是上游临时故障，稍后重试。",
-            _truncate(blob),
-            status,
-        )
-    return AIProviderError(
-        "http_error",
-        f"{label} 调用失败（HTTP {status}）。",
-        _truncate(blob),
-        status,
-    )
-
-
-def _classify_request_exception(exc: Exception, label: str) -> AIProviderError:
-    name = type(exc).__name__
-    text = _truncate(str(exc))
-    if name in ("Timeout", "ReadTimeout", "ConnectTimeout", "DeadlineExceeded"):
-        return AIProviderError(
-            "timeout",
-            f"{label} 请求超时（{REQUEST_TIMEOUT}秒）。请检查网络或代理是否可用。",
-            text,
-        )
-    if name in ("ProxyError", "SSLError", "ConnectionError", "NewConnectionError"):
-        return AIProviderError(
-            "network",
-            f"无法连接 {label}（{text}）。请检查 https_proxy 是否指向可用代理。",
-            text,
-        )
-    return AIProviderError("network", f"{label} 网络异常（{name}）。", text)
-
-
-def classify_gemini_exception(exc: Exception, model: str) -> AIProviderError:
-    """Gemini SDK 异常分类，并把原始 quota 细节透出来（区分模型级配额与 RPM 限流）"""
-    name = type(exc).__name__
-    text = _truncate(str(exc), 800)
-    lowered = text.lower()
-
-    if name in ("DeadlineExceeded", "ReadTimeout", "Timeout", "ConnectTimeout"):
-        return AIProviderError(
-            "timeout",
-            f"Gemini 请求超时（{REQUEST_TIMEOUT}秒）。请确认代理可用："
-            "curl -x http://127.0.0.1:7897 https://generativelanguage.googleapis.com",
-            text,
-        )
-    if name in ("ProxyError", "SSLError", "ConnectionError", "NewConnectionError"):
-        return AIProviderError("network", f"无法连接 Gemini（{text}）。请检查 https_proxy 设置。", text)
-    if name in ("ServiceUnavailable", "InternalServerError", "Unknown"):
-        return AIProviderError(
-            "service_unavailable",
-            f"Gemini 暂时不可用（{name}）。通常是网络无法直连 Google，"
-            "请设置代理：https_proxy=http://127.0.0.1:7897 http_proxy=http://127.0.0.1:7897 ./start.sh",
-            text,
-        )
-    if name == "ResourceExhausted":
-        per_day = "per day" in lowered or "daily" in lowered or "天" in text
-        per_minute = "per minute" in lowered or "rpm" in lowered
-        if per_day:
-            hint = (
-                f"Gemini 模型 {model} 的免费层每日配额已用尽（该配额按模型分别计算）。"
-                "等待配额重置，或在设置里切换到其他模型/提供商。"
-            )
-        elif per_minute:
-            hint = f"Gemini 模型 {model} 触发每分钟请求数限制（RPM），降低调用频率即可。"
-        else:
-            hint = f"Gemini 模型 {model} 配额已用尽或被限流。"
-        return AIProviderError("quota_exhausted", hint, text)
-    if name in ("PermissionDenied", "Unauthenticated"):
-        return AIProviderError(
-            "auth_failed",
-            "Gemini API Key 无效或未启用 Gemini API，请在设置里检查 Key。",
-            text,
-        )
-    if name == "NotFound":
-        return AIProviderError(
-            "model_not_found",
-            f"Gemini 模型不存在或当前 Key 无权访问：{model}",
-            text,
-        )
-    return AIProviderError("unknown", f"Gemini 调用失败：{name}: {text}", text)
-
-
-# --------------------------------------------------------------------------
-# 生成实现
-# --------------------------------------------------------------------------
-
-def _request_options():
-    from google.generativeai.types import RequestOptions
-    return RequestOptions(timeout=REQUEST_TIMEOUT)
-
-
-def _strip_fence(text: str) -> str:
-    text = (text or "").strip()
-    if text.startswith("```"):
-        text = re.sub(r"^```(json)?\s*\n", "", text)
-        text = re.sub(r"\n```$", "", text)
-    return text.strip()
-
-
-_THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
-_THINK_OPEN = re.compile(r"<think>.*\Z", re.DOTALL | re.IGNORECASE)
-
-
-def _strip_think(text: str) -> str:
-    """
-    剥掉推理模型塞在正文前面的思考过程。
-
-    MiniMax M2.x / M3 等模型会把 CoT 以 <think>...</think> 内联在
-    message.content 开头（不是 reasoning_content 字段）。不剥掉的话：
-      - test_connection 会把思考过程当成"回复"展示给用户；
-      - generate_json 的下游 json.loads 直接失败（正文不以 { 开头）。
-    未闭合的残缺 <think>（token 被 max_completion_tokens 截断）也要一起清掉。
-    """
-    text = (text or "").strip()
-    if "<think>" not in text.lower():
-        return text
-    text = _THINK_BLOCK.sub("", text)
-    text = _THINK_OPEN.sub("", text)
-    return text.strip()
-
-
-def _gemini_text(response) -> str:
-    """
-    安全取文本。思考型模型在小 max_output_tokens 下会返回"没有有效 Part"的响应，
-    此时 response.text quick accessor 会抛 InvalidOperation，必须逐 candidate 兜底取。
-    """
-    try:
-        text = response.text
-        if text:
-            return text
-    except Exception:
-        pass
-
-    chunks = []
-    for candidate in getattr(response, "candidates", None) or []:
-        content = getattr(candidate, "content", None)
-        for part in getattr(content, "parts", None) or []:
-            text = getattr(part, "text", None)
-            if text:
-                chunks.append(text)
-    return "\n".join(chunks)
-
-
-def _gemini_generate(prompt: str, api_key: str, model_name: str, temperature: float,
-                     max_output_tokens: int = None, json_mode: bool = True) -> str:
-    import google.generativeai as genai
-
-    genai.configure(api_key=api_key)
-    try:
-        model = genai.GenerativeModel(model_name)
-        generation_config = {"temperature": temperature}
-        if json_mode:
-            generation_config["response_mime_type"] = "application/json"
-        if max_output_tokens:
-            generation_config["max_output_tokens"] = max_output_tokens
-
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(**generation_config),
-            request_options=_request_options(),
-        )
-    except Exception as exc:
-        raise classify_gemini_exception(exc, model_name) from exc
-
-    text = _gemini_text(response)
-    if not text.strip():
-        raise AIProviderError(
-            "empty_response",
-            f"Gemini 模型 {model_name} 返回了空内容。若是思考型模型，通常是 "
-            "max_output_tokens 太小被思考过程占满，换用非思考模型或调大额度。",
-            _truncate(str(getattr(response, "candidates", ""))),
-        )
-    return _strip_fence(text)
-
-
-def _timeout_for_tokens(max_tokens: int) -> int:
-    """按 token 额度估算超时，避免额度放大后反而先超时"""
-    return min(MAX_REQUEST_TIMEOUT,
-               REQUEST_TIMEOUT + max_tokens // TOKEN_TIMEOUT_DIVISOR)
-
-
-def _openai_compatible_attempt(prompt: str, meta: dict, api_key: str, base_url: str,
-                               model_name: str, temperature: float,
-                               max_output_tokens: int) -> tuple:
-    """单次请求，内部含 MiniMax 国内/国际站回退。
-
-    返回 (剥离后的正文, finish_reason, 原始 content)；正文为空时返回空串。
-    """
-    label = meta["label"]
-    body = {
-        "model": model_name,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": temperature,
-        "max_completion_tokens": max_output_tokens,
-        "stream": False,
-    }
-    if meta.get("reasoning_split"):
-        body["reasoning_split"] = True
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    timeout = _timeout_for_tokens(max_output_tokens)
-
-    hosts = [base_url] + [u for u in meta.get("alt_base_urls") or [] if u != base_url]
-    last = None
-    for host in hosts:
-        try:
-            resp = requests.post(f"{host.rstrip('/')}/chat/completions",
-                                 headers=headers, json=body, timeout=timeout)
-        except requests.exceptions.Timeout as exc:
-            raise AIProviderError(
-                "timeout",
-                f"{label} 请求超时（{timeout}秒）。请检查网络或代理是否可用。",
-                _truncate(str(exc)),
-            ) from exc
-        except requests.exceptions.RequestException as exc:
-            last = _classify_request_exception(exc, label)
-            continue
-
-        # 401/403 换站重试：MiniMax 国内/国际站 Key 不互通
-        if resp.status_code in (401, 403) and host != hosts[-1]:
-            continue
-        if resp.status_code != 200:
-            raise _classify_status(resp.status_code, resp.text, label, model_name)
-
-        try:
-            choice = resp.json()["choices"][0]
-            content = choice["message"].get("content") or ""
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise AIProviderError(
-                "bad_response",
-                f"{label} 返回了无法解析的响应结构：{exc}",
-                _truncate(resp.text),
-                resp.status_code,
-            ) from exc
-
-        # 先剥思考过程再剥代码块围栏：未开 reasoning_split 的模型会把
-        # ```json 放在 <think> 之后；开了也要保留这层兜底。
-        text = _strip_fence(_strip_think(content))
-        return text, choice.get("finish_reason"), content
-
-    if last is not None:
-        raise last
-    raise AIProviderError("auth_failed", f"{label} 鉴权失败：API Key 无效、已过期或未开通该模型权限。")
-
-
-def _openai_compatible_generate(prompt: str, meta: dict, api_key: str, base_url: str,
-                                model_name: str, temperature: float,
-                                max_output_tokens: int = None) -> str:
-    label = meta["label"]
-    budget = max_output_tokens or DEFAULT_MAX_OUTPUT_TOKENS
-    attempts = [budget]
-    if budget < TOKEN_RETRY_CEILING:
-        attempts.append(min(TOKEN_RETRY_CEILING, budget * 4))
-
-    raw = ""
-    finish = None
-    for i, current in enumerate(attempts):
-        text, finish, raw = _openai_compatible_attempt(
-            prompt, meta, api_key, base_url, model_name, temperature, current)
-        # finish_reason=length 表示额度被吃光：正文要么为空，要么是被腰斩的
-        # JSON，两种都得用更大额度重来，不能当成成功。
-        if text and finish != "length":
-            return text
-        if i < len(attempts) - 1:
-            print(f"  ⚠️ {label} {model_name} 在 {current} token 额度下被截断"
-                  f"（finish_reason=length），放大到 {attempts[i + 1]} 重试")
-
-    if finish == "length":
-        # 额度被思考吃光：换个说法并给出真正有效的建议
-        raise AIProviderError(
-            "truncated",
-            f"{label} 模型 {model_name} 的思考过程耗尽了 token 额度"
-            f"（已重试到 {attempts[-1]}，仍被截断）。"
-            "长文摘要对推理模型很吃额度，建议改用非推理模型"
-            "（如 MiniMax-M2.5-highspeed），或把原文拆短后再生成。",
-            _truncate(raw) if raw.strip() else "模型返回了完全空白的响应。",
-        )
-    raise AIProviderError(
-        "empty_response",
-        f"{label} 模型 {model_name} 返回了空内容（已尝试 {attempts[-1]} token 额度）。"
-        "若这是推理模型，可能是思考占满了额度，可换非推理模型重试。",
-        _truncate(raw) if raw.strip() else "模型返回了完全空白的响应。",
-    )
-
-
-def _models_from_openai_compatible(meta: dict, api_key: str) -> list:
-    """查询 OpenAI 兼容端的 /models，同样按站点回退，避免 Key 与站点不匹配"""
-    label = meta["label"]
-    hosts = [meta["base_url"]] + [u for u in meta.get("alt_base_urls") or [] if u != meta["base_url"]]
-    last = None
-    for host in hosts:
-        try:
-            resp = requests.get(f"{host.rstrip('/')}/models",
-                                headers={"Authorization": f"Bearer {api_key}"},
-                                timeout=MODEL_LIST_TIMEOUT)
-        except requests.exceptions.RequestException as exc:
-            last = _classify_request_exception(exc, label)
-            continue
-        if resp.status_code in (401, 403) and host != hosts[-1]:
-            continue
-        if resp.status_code != 200:
-            last = _classify_status(resp.status_code, resp.text, label, f"{host}/models")
-            continue
-        models = sorted(item.get("id") for item in resp.json().get("data", []) if item.get("id"))
-        if models:
-            return models
-    if last is not None:
-        raise last
-    return []
-
-
-def generate_json(prompt: str, temperature: float = 0.7, provider: str = None,
-                  api_key: str = None, model: str = None) -> str:
-    """
-    统一生成入口，返回（已剥离代码块标记的）文本。
-    调用方负责 json.loads。
-    """
-    provider = provider or active_provider()
-    if provider not in PROVIDERS:
-        raise AIProviderError("unknown_provider", f"未知提供商：{provider}")
-
-    meta = PROVIDERS[provider]
-    model_name = get_model(provider, model)
-    key = get_api_key(provider, api_key)
-    if not key:
-        raise AIProviderError(
-            "missing_api_key",
-            f"尚未配置 {meta['label']} 的 API Key，请先在页面设置中填写。",
-        )
-
-    if meta["kind"] == "gemini":
-        return _gemini_generate(prompt, key, model_name, temperature)
-    return _openai_compatible_generate(
-        prompt, meta, key, meta["base_url"], model_name, temperature
-    )
-
-
-# --------------------------------------------------------------------------
-# 连通性测试 / 模型列表
-# --------------------------------------------------------------------------
-
-def test_connection(provider: str, api_key: str = None, model: str = None) -> dict:
-    """
-    用最小生成请求验证 Key + 模型 + 配额。
-    只做一次极短调用：GET /models 只能证明 Key 有效，无法发现配额耗尽。
-    """
-    if provider not in PROVIDERS:
-        raise AIProviderError("unknown_provider", f"未知提供商：{provider}")
-
-    meta = PROVIDERS[provider]
-    key = get_api_key(provider, api_key)
-    if not key:
-        raise AIProviderError(
-            "missing_api_key",
-            f"尚未配置 {meta['label']} 的 API Key，请先填写。",
-        )
-
-    model_name = get_model(provider, model)
-    started = time.time()
-
-    if meta["kind"] == "gemini":
-        text = _gemini_generate(
-            "只回复 OK 两个字符，不要其他内容。",
-            key,
-            model_name,
-            temperature=0.0,
-            max_output_tokens=512,
-            json_mode=False,
-        )
-    else:
-        text = _openai_compatible_generate(
-            "只回复 OK 两个字符，不要其他内容。",
-            meta,
-            key,
-            meta["base_url"],
-            model_name,
-            temperature=0.0,
-            # 推理模型（M2.x / M3）会先花掉一部分额度思考，
-            # 256 容易被思考占满导致正文为空，这里给足余量
-            max_output_tokens=1024,
-        )
-
-    elapsed = time.time() - started
-    return {
-        "provider": provider,
-        "label": meta["label"],
-        "model": model_name,
-        "reply": _truncate(text, 120),
-        "latency_ms": int(elapsed * 1000),
-    }
-
-
-GEMINI_MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-MODEL_LIST_TIMEOUT = 30
-# 模型目录变化很慢，但每次查询都可能因代理分页而耗时数十秒，缓存 10 分钟避免每次开页面都等
-_MODEL_CACHE_TTL = 600
-_model_cache = {}
-
-
-def _cache_key(provider: str, api_key: str) -> str:
-    import hashlib
-    return f"{provider}:{hashlib.sha256(api_key.encode()).hexdigest()[:16]}"
-
-
-def list_remote_models(provider: str, api_key: str = None) -> list:
-    """查询上游实际可用模型；失败时抛 AIProviderError，由调用方回退到静态清单"""
-    if provider not in PROVIDERS:
-        raise AIProviderError("unknown_provider", f"未知提供商：{provider}")
-
-    meta = PROVIDERS[provider]
-    key = get_api_key(provider, api_key)
-    if not key:
-        raise AIProviderError("missing_api_key", f"尚未配置 {meta['label']} 的 API Key。")
-
-    cache_id = _cache_key(provider, key)
-    cached = _model_cache.get(cache_id)
-    if cached and time.time() - cached[0] < _MODEL_CACHE_TTL:
-        return cached[1]
-
-    if meta["kind"] == "gemini":
-        # 走一次性 REST 而不是 genai.list_models()：SDK 走分页，代理下单次可耗时 40s+
-        try:
-            resp = requests.get(
-                GEMINI_MODELS_URL,
-                params={"key": key, "pageSize": 200},
-                timeout=MODEL_LIST_TIMEOUT,
-            )
-        except requests.exceptions.RequestException as exc:
-            raise _classify_request_exception(exc, meta["label"]) from exc
-        if resp.status_code != 200:
-            raise _classify_status(resp.status_code, resp.text, meta["label"], "v1beta/models")
-        names = [
-            item.get("name", "").split("/", 1)[1]
-            for item in resp.json().get("models", [])
-            if "generateContent" in (item.get("supportedGenerationMethods") or [])
-            and "/" in item.get("name", "")
-        ]
-        models = sorted(set(names))
-    else:
-        models = _models_from_openai_compatible(meta, key)
-
+        data = json.loads(raw)['data']
+        if not isinstance(data, list) or len(data) > 500:
+            raise RequestError('bad_response')
+        models = []
+        for item in data:
+            if not isinstance(item, dict) or not isinstance(item.get('id'), str):
+                raise RequestError('bad_response')
+            modalities = item.get('output_modalities', ['text'])
+            if not isinstance(modalities, list) or not all(isinstance(value, str) for value in modalities):
+                raise RequestError('bad_response')
+            if (valid_model(provider, item['id']) and 'text' in modalities
+                    and item['id'] not in models):
+                models.append(item['id'])
+    except (KeyError, TypeError, ValueError):
+        raise RequestError('bad_response') from None
     if not models:
-        raise AIProviderError(
-            "empty_model_list",
-            f"{meta['label']} 未返回任何可用模型，请确认 Key 有该模型权限。",
-        )
-    _model_cache[cache_id] = (time.time(), models)
-    return models
+        raise RequestError('no_models')
+    return {'models': models, 'source': 'live',
+            'message': '已从厂商实时获取文本模型列表；实际调用仍受账户权限、余额和服务状态限制。'}
+
+
+def generate_json(prompt, config, *, timeout=REQUEST_TIMEOUT):
+    config = validate_config(config)
+    provider = PROVIDERS[config['provider']]
+    anthropic = provider['protocol'] == 'anthropic'
+    payload = {'model': config['model'], 'messages': [{'role': 'user', 'content': prompt}]}
+    headers = {'Content-Type': 'application/json'}
+    if anthropic:
+        payload['max_tokens'] = 4096
+        endpoint = '/messages'
+        headers.update({'Authorization': 'Bearer ' + config['api_key'], 'anthropic-version': '2023-06-01'})
+    else:
+        endpoint = '/chat/completions'
+        headers['Authorization'] = 'Bearer ' + config['api_key']
+        if config['provider'] == 'deepseek':
+            payload['response_format'] = {'type': 'json_object'}
+    status, _, raw = safe_request(provider['base_url'] + endpoint,
+                                  body=json.dumps(payload, ensure_ascii=False).encode(),
+                                  headers=headers, timeout=min(timeout, REQUEST_TIMEOUT))
+    check_status(status)
+    try:
+        response = json.loads(raw)
+        if anthropic:
+            if response.get('stop_reason') in ('max_tokens', 'model_context_window_exceeded'):
+                raise RequestError('truncated')
+            text = ''.join(block['text'] for block in response['content'] if block.get('type') == 'text')
+        else:
+            choice = response['choices'][0]
+            if choice.get('finish_reason') == 'length':
+                raise RequestError('truncated')
+            text = choice['message']['content']
+        if not isinstance(text, str) or not text.strip():
+            raise RequestError('empty_response')
+        text = text.strip()
+        fenced = re.fullmatch(r'```(?:json)?\s*(.*?)\s*```', text, re.IGNORECASE | re.DOTALL)
+        if fenced:
+            text = fenced[1]
+        try:
+            result = json.loads(text)
+        except ValueError:
+            raise RequestError('invalid_json') from None
+        if not isinstance(result, dict):
+            raise RequestError('invalid_json')
+        return result
+    except (KeyError, IndexError, TypeError, ValueError, AttributeError):
+        raise RequestError('bad_response') from None

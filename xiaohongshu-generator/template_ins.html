@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INS风</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            padding: 40px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 40px;
+            justify-content: center;
+        }
+
+        .card {
+            width: 1242px;
+            height: 1660px;
+            background: #FFFFFF;
+            overflow: hidden;
+            position: relative;
+            flex-shrink: 0;
+            border-radius: 0;
+        }
+
+        /* 渐变背景 */
+        .gradient-bg {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, 
+                rgba(131, 58, 180, 0.1) 0%, 
+                rgba(253, 29, 29, 0.05) 50%, 
+                rgba(252, 176, 69, 0.1) 100%);
+            z-index: 0;
+        }
+
+        /* 封面样式 */
+        .card-cover {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 80px;
+            text-align: center;
+        }
+
+        .ins-avatar {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            padding: 6px;
+            margin-bottom: 40px;
+        }
+
+        .avatar-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #FFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+        }
+
+        .cover-title {
+            font-size: 100px;
+            font-weight: 700;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.2;
+            margin-bottom: 30px;
+        }
+
+        .cover-subtitle {
+            font-size: 40px;
+            color: #666;
+            font-weight: 400;
+            margin-bottom: 40px;
+        }
+
+        .cover-tags {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .cover-tag {
+            padding: 14px 28px;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743);
+            color: #FFF;
+            border-radius: 30px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        /* 图片样式 */
+        .image-container {
+            width: 100%;
+            flex: 1 1 auto;
+            min-height: 300px;
+            max-height: 620px;
+            margin-top: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border-radius: 20px;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 20px;
+        }
+
+        /* 互动栏 */
+        .interaction-bar {
+            display: flex;
+            gap: 30px;
+            margin-top: 50px;
+        }
+
+        .interaction-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 32px;
+            color: #333;
+        }
+
+        .interaction-icon {
+            font-size: 40px;
+        }
+
+        /* 内容页样式 */
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            padding: 60px;
+        }
+
+        .content-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid #EFEFEF;
+        }
+
+        .header-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            padding: 3px;
+        }
+
+        .header-avatar-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #FFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+        }
+
+        .header-info {
+            flex: 1;
+        }
+
+        .header-title {
+            font-size: 48px;
+            font-weight: 700;
+            color: #262626;
+            margin-bottom: 8px;
+        }
+
+        .header-meta {
+            font-size: 26px;
+            /* 原 #8E8E8E 在白底仅 3.28:1 */
+            color: #6E6E73;
+        }
+
+        .content-container {
+            /* 可收缩，避免长要点把插图和底部互动区挤出卡片 */
+            flex: 0 1 auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        /* 无图时撑满剩余高度，消除底部死区 */
+        .card-content:not(:has(.image-container)) .content-container {
+            flex: 1 1 auto;
+            justify-content: space-evenly;
+        }
+
+        /* 3 条要点 + 插图时的轻压缩 */
+        .card-content:has(.ins-item:nth-child(3)):not(:has(.ins-item:nth-child(4))):has(.image-container) .content-container {
+            gap: 20px;
+        }
+
+        .card-content:has(.ins-item:nth-child(3)):not(:has(.ins-item:nth-child(4))):has(.image-container) .ins-item {
+            padding: 28px;
+        }
+
+        .card-content:has(.ins-item:nth-child(3)):not(:has(.ins-item:nth-child(4))):has(.image-container) .item-text {
+            font-size: 33px;
+            line-height: 1.6;
+        }
+
+        /* 5 条要点 + 插图时的中间档 */
+        .card-content:has(.ins-item:nth-child(5)):has(.image-container) .content-container {
+            gap: 18px;
+        }
+
+        .card-content:has(.ins-item:nth-child(5)):has(.image-container) .ins-item {
+            padding: 26px 30px;
+        }
+
+        .card-content:has(.ins-item:nth-child(5)):has(.image-container) .item-text {
+            font-size: 31px;
+            line-height: 1.58;
+        }
+
+        .card-content:has(.ins-item:nth-child(5)):has(.image-container) .image-container {
+            min-height: 190px;
+            max-height: 470px;
+        }
+
+        /* 7 条以上逐级压缩 */
+        .card-content:has(.ins-item:nth-child(7)):has(.image-container) .content-container {
+            gap: 12px;
+        }
+
+        .card-content:has(.ins-item:nth-child(7)):has(.image-container) .ins-item {
+            padding: 18px 24px;
+        }
+
+        .card-content:has(.ins-item:nth-child(7)):has(.image-container) .item-text {
+            font-size: 27px;
+            line-height: 1.52;
+        }
+
+        .card-content:has(.ins-item:nth-child(7)):has(.image-container) .content-header {
+            padding: 20px 40px;
+        }
+
+        .card-content:has(.ins-item:nth-child(7)):has(.image-container) .post-title {
+            font-size: 40px;
+        }
+
+        .card-content:has(.ins-item:nth-child(7)):has(.image-container) .image-container {
+            min-height: 130px;
+            max-height: 360px;
+        }
+
+        .card-content:has(.ins-item:nth-child(9)):has(.image-container) .content-container {
+            gap: 8px;
+        }
+
+        .card-content:has(.ins-item:nth-child(9)):has(.image-container) .ins-item {
+            padding: 13px 20px;
+        }
+
+        .card-content:has(.ins-item:nth-child(9)):has(.image-container) .item-text {
+            font-size: 24px;
+            line-height: 1.48;
+        }
+
+        .card-content:has(.ins-item:nth-child(9)):has(.image-container) .content-header {
+            padding: 14px 40px;
+        }
+
+        .card-content:has(.ins-item:nth-child(9)):has(.image-container) .post-title {
+            font-size: 34px;
+        }
+
+        .card-content:has(.ins-item:nth-child(9)):has(.image-container) .image-container {
+            min-height: 95px;
+            max-height: 160px;
+        }
+
+        /* 要点极多且无插图时，也需要压缩以容纳底部互动区 */
+        .card-content:has(.ins-item:nth-child(7)):not(:has(.image-container)) .content-container {
+            gap: 14px;
+        }
+
+        .card-content:has(.ins-item:nth-child(7)):not(:has(.image-container)) .ins-item {
+            padding: 22px 28px;
+        }
+
+        .card-content:has(.ins-item:nth-child(7)):not(:has(.image-container)) .item-text {
+            font-size: 30px;
+            line-height: 1.55;
+        }
+
+        .ins-item {
+            background: #FAFAFA;
+            border-radius: 20px;
+            padding: 35px;
+            position: relative;
+        }
+
+        .ins-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background: linear-gradient(180deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+            border-radius: 20px 0 0 20px;
+        }
+
+        .item-text {
+            font-size: 36px;
+            color: #262626;
+            line-height: 1.7;
+            padding-left: 15px;
+        }
+
+        /* 底部互动 */
+        .content-footer {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #EFEFEF;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-actions {
+            display: flex;
+            gap: 40px;
+        }
+
+        .action-btn {
+            font-size: 44px;
+            cursor: pointer;
+        }
+
+        .page-dots {
+            display: flex;
+            gap: 10px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #DBDBDB;
+        }
+
+        .dot.active {
+            background: linear-gradient(45deg, #f09433, #dc2743);
+        }
+
+        .save-btn {
+            font-size: 44px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Cover -->
+    <div class="card card-cover" id="card-1">
+        <div class="gradient-bg"></div>
+        
+        <div class="ins-avatar">
+            <div class="avatar-inner">✨</div>
+        </div>
+        
+        <h1 class="cover-title">{{ cover_title }}</h1>
+        <div class="cover-subtitle">{{ cover_subtitle }}</div>
+        
+        {% if cover_image %}
+        <div class="image-container">
+            <img class="card-image" src="{{ cover_image }}" alt="封面图片">
+        </div>
+        {% endif %}
+        
+        <div class="cover-tags">
+            {% for tag in cover_tags %}
+            <span class="cover-tag">#{{ tag }}</span>
+            {% endfor %}
+        </div>
+        
+        <div class="interaction-bar">
+            <div class="interaction-item">
+                <span class="interaction-icon">❤️</span>
+                <span>12.5k</span>
+            </div>
+            <div class="interaction-item">
+                <span class="interaction-icon">💬</span>
+                <span>328</span>
+            </div>
+            <div class="interaction-item">
+                <span class="interaction-icon">📤</span>
+                <span>分享</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    {% for slide in slides %}
+    <div class="card card-content" id="card-{{ loop.index + 1 }}">
+        <div class="gradient-bg"></div>
+        
+        <div class="content-header">
+            <div class="header-avatar">
+                <div class="header-avatar-inner">{{ ['📝', '💡', '✨', '🌟', '💫', '🎯'][loop.index0 % 6] }}</div>
+            </div>
+            <div class="header-info">
+                <h2 class="header-title">{{ slide.title }}</h2>
+                <div class="header-meta">刚刚发布</div>
+            </div>
+        </div>
+        
+        <div class="content-container">
+            {% for item in slide.content %}
+            <div class="ins-item">
+                <div class="item-text">{{ item }}</div>
+            </div>
+            {% endfor %}
+            {% if slide.image %}
+            <div class="image-container">
+                <img class="card-image" src="{{ slide.image }}" alt="内容图片">
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="content-footer">
+            <div class="footer-actions">
+                <span class="action-btn">🤍</span>
+                <span class="action-btn">💬</span>
+                <span class="action-btn">📤</span>
+            </div>
+            <div class="page-dots">
+                {% for i in range(slides|length) %}
+                <div class="dot {{ 'active' if i == loop.index0 else '' }}"></div>
+                {% endfor %}
+            </div>
+            <span class="save-btn">🔖</span>
+        </div>
+    </div>
+    {% endfor %}
+</body>
+
+</html>

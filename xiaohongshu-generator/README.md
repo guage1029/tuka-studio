@@ -1,237 +1,65 @@
-# RednoteGen - 小红书图文卡片生成器
+# 图卡 · tuka.guage.chat
 
-> 基于 AI 的智能图文卡片生成工具，一键将长文转换为精美的小红书风格图卡
+自带国产模型 Key，把长文整理为可编辑、可下载的图卡。Flask、原生 JavaScript、Jinja2、Playwright，46 款独立 HTML 模板；无需账号。
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
-## ✨ 特性
-
-- 🤖 **AI 智能分析** - 自动分析内容结构，智能决定卡片数量（6-9张）
-- 😀 **Emoji 智能插入** - AI 自动在每个要点前添加相关 emoji，让内容更生动
-- 🚫 **违禁词检测** - 内置敏感词库，发布前一键检测，高亮标红违规词
-- 🎨 **10种精美风格** - 小红书、苹果极简、多巴胺、Capsule、科技、Notion、孟菲斯、新中式、拍立得、流光卡片
-- 🔄 **秒速切换风格** - 生成一次，随意切换风格，无需重新调用 AI
-- �  **智能图片分配** - 支持 Markdown 图片自动提取，AI 智能分配到相关卡片
-- 🖼️ **统一图片尺寸** - 所有风格图片尺寸统一，布局美观一致
-- 📐 **完美适配** - 小红书标准 3:4 比例（1242x1660px）
-- 🌐 **现代化界面** - 简洁美观的 Web 操作界面
-- 💾 **一键下载** - 支持单张或批量下载图片
-
-## 🎬 快速开始
-
-### 1. 安装依赖
+## 本地启动
+需要 Python 3.11+。在项目目录执行：
 
 ```bash
-pip install -r requirements.txt
-playwright install chromium
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m playwright install chromium
+.venv/bin/python app.py
 ```
 
-### 2. 配置 API Key
+首页：http://127.0.0.1:5001/
+
+工作台：http://127.0.0.1:5001/app
+
+也可运行 `./start.sh`，Windows 用 `start.bat`。设置均在工作台填写，不需要 `config.py`。旧配置、旧输出不会被读取或自动删除，不要将它们放入公网目录。`main.py` 不再运行旧的落盘 CLI。
+
+## 使用
+1. 选择 DeepSeek、MiniMax、Kimi、智谱 GLM 或豆包，输入国内开放平台按量 API Key，点击“刷新模型列表”，再从下拉框选模型。地址和兼容协议由服务端配置，无需填写；不接入海外厂商、自定义 URL 或 Coding Plan 专用 Key。
+2. 粘贴 50–20000 字正文或 Markdown，选样式，整理文案。模型费用由指定服务收取。
+3. 编辑封面、标签、要点和配图，可单页重生成；确认后渲染。每组最多 9 张，PNG 为 1242 × 1660 px，可单张或 ZIP 下载。换样式只渲染，不调用模型。
+
+DeepSeek/Kimi 从官方实时获取列表；MiniMax/智谱/豆包使用有更新日期的官方预置目录，Key 和模型权限在生成时校验。刷新不调用生成接口。模型、协议、固定端点及来源见 [PROVIDERS.md](PROVIDERS.md)。
+
+底层 OpenAI 兼容协议使用 `model + messages`，DeepSeek 另启用 JSON 输出模式；不发送各模型支持不同的采样与长度选项，输出长度采用服务商默认值；Anthropic 使用必需的 `max_tokens=4096`。传输超时不等于上游停止计费，请选择适合短文案的模型。
+
+配图仅 PNG/JPEG/WebP，输入 ≤2 MiB、≤1200 万像素，校验重编码后最长边 1600px。Markdown 可以含多张 HTTPS 候选配图，不以输入图数拦截。模型依据图片说明、位置和正文上下文，为最多 9 张图卡选取合适图片；只下载最终选中的图片，重复 URL 去重，多余不使用。选中图获取失败时跳过并提示，可在编辑区补图；不跟随重定向，不访问内网。当前不识别图片像素内容。
+
+## 失败提示
+
+- 模型 JSON 或卡片字段、字数、页数不合规时，最多自动纠正一次；两次调用共用 60 秒，可能增加一次模型费用。仍失败会区分 JSON 与卡片格式提示并保留输入；不直接裁切文案。缺省副标题/标签、数字字符串图号可兼容，非法图号忽略。鉴权、余额、网络、空响应和截断不自动重试。
+- 正文候选配图可以超过 8 张；最终图卡仍最多 9 张（封面 + 1–8 内容页），每页最多一张配图。源站拒绝、超时、格式不支持或不安全的选中图会跳过，生成状态显示候选/采用/获取失败数量，文案和原始正文保留。可以在编辑区补充或替换图片。
+- 厂商返回 401/403、402、400/422，分别提示鉴权失败、余额不足、请求参数被拒绝；不回传上游原始错误或内容。失败保留正文和当前编辑，修正后可重试。
+
+## 数据与统计
+Key、正文、配图、生成结果仅在请求和当前页面内存使用，不落盘、无历史、刷新后清空。服务器转发正文至用户所选国产厂商的国内模型接口，本站不承诺第三方保留策略。生产应使用内存临时盘、HTTPS 反代并关闭请求日志/缓存/缓冲，见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+
+唯一持久化数据是独立 SQLite 匿名汇总：日期（UTC+8）、事件、模板、错误分类、次数。保留 90 天，不保存原始事件、IP、Key、URL 或用户标识。访问/生成结果由服务端统计；浏览器只报告样例/样式选择/下载点击。生成包括文案整理和单页重生成，渲染不计生成事件。次数不等于人数或留存；下载点击不保证已保存。
+
+只读本地查询（不提供公开统计接口）：
 
 ```bash
-# 复制配置示例
-cp config.example.py config.py
-
-# 编辑 config.py，填入你的 Gemini API Key
-# 获取免费 API Key: https://aistudio.google.com/app/apikey
+.venv/bin/python metrics.py
+.venv/bin/python metrics.py --db /path/to/metrics.sqlite3
 ```
 
-### 3. 启动服务
+可通过 `METRICS_DB` 指定独立数据库位置。限频摘要仅在进程内存留存约 60 秒，不进入数据库。
+
+## 验证与样例
 
 ```bash
-python app.py
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python scripts/verify_rendering.py
+.venv/bin/python scripts/verify_browser.py
+node --check static/app.js
+.venv/bin/python scripts/generate_samples.py
 ```
 
-访问 http://localhost:5000 开始使用！
+浏览器验证启动自己的临时服务、使用离线模型替身，不访问第三方或历史 Key。详细结果和未验证事项见 [VERIFICATION.md](VERIFICATION.md)，任务清单见 [Task.md](Task.md)。样例脚本仅写自有样例，`static/samples/manifest.json` 含内容与渲染指纹，非用户产物。
 
-## 📖 详细文档
-
-查看 [DEPLOYMENT.md](DEPLOYMENT.md) 获取完整的部署和使用指南。
-
-## 🎨 风格预览
-
-| 风格 | 特点 | 适用场景 |
-|------|------|----------|
-| 小红书 | 紫粉渐变，经典风格 | 通用内容 |
-| 苹果极简 | 纯黑白灰，高级感 | 干货知识、工具推荐 |
-| 多巴胺 | 高饱和荧光色 | 创意灵感、潮流话题 |
-| Capsule | 终端代码风格 | 技术教程、编程分享 |
-| 知识胶囊 | 蓝紫渐变风 | AI、科技、硬核内容 |
-| 备忘录 | 苹果 Notes 风格 | 学习笔记、待办清单 |
-| 孟菲斯 | 复古波普风 | 年轻话题、潮流文化 |
-| 新中式 | 国潮水墨风 | 传统文化、情感语录 |
-| 拍立得 | 胶片复古风 | 生活记录、文艺内容 |
-| 流光卡片 | 动态渐变光晕 | 科技产品、高端内容 |
-
-## 🛠️ 技术栈
-
-- **后端**: Python 3.9+, Flask
-- **AI**: Google Gemini API
-- **模板**: Jinja2
-- **截图**: Playwright
-- **前端**: HTML5, CSS3, JavaScript
-
-## 📂 项目结构
-
-```
-xiaohongshu-generator/
-├── app.py                    # Web 服务
-├── main.py                   # 命令行工具
-├── config.py                 # 配置文件（需自行创建）
-├── config.example.py         # 配置示例
-├── sensitive_words.py        # 敏感词库模块
-├── requirements.txt          # 依赖列表
-├── DEPLOYMENT.md            # 部署文档
-├── CHANGELOG_UI.md          # UI更新日志
-├── QUICKSTART.md            # 快速启动指南
-├── templates/               # Web 界面
-│   └── index.html
-├── template_*.html          # 10种风格模板
-└── output/                  # 生成的图片
-```
-
-## 🚀 使用方式
-
-### Web 界面（推荐）
-
-1. 启动服务：`python app.py`
-2. 访问 http://localhost:5000
-3. 粘贴长文内容（支持 Markdown 格式，自动提取图片）
-4. 选择风格
-5. 点击生成
-6. 下载图片
-
-### 命令行
-
-```bash
-# 编辑 input.txt 文件（支持 Markdown 格式）
-echo "你的长文内容" > input.txt
-
-# 运行生成
-python main.py
-
-# 查看输出
-ls output/
-```
-
-### 图片功能
-
-- **Markdown 图片支持**: 使用 `![描述](图片URL)` 语法，AI 会自动提取并智能分配图片
-- **图片格式**: 支持 PNG、JPG、JPEG、WEBP（自动跳过 GIF）
-- **智能分配**: AI 根据内容相关度将图片分配到对应卡片
-- **统一尺寸**: 所有风格的图片高度统一，布局美观一致
-
-## ⚙️ 配置说明
-
-### API 选择
-
-支持三种 API：
-
-1. **Google Gemini**（推荐，免费）
-   ```python
-   GEMINI_API_KEY = "your-key"
-   MODEL_NAME = "models/gemini-2.5-flash-lite"
-   ```
-
-2. **OpenAI**
-   ```python
-   OPENAI_BASE_URL = "https://api.openai.com/v1"
-   OPENAI_API_KEY = "sk-..."
-   MODEL_NAME = "gpt-4o"
-   ```
-
-3. **DeepSeek**
-   ```python
-   OPENAI_BASE_URL = "https://api.deepseek.com"
-   OPENAI_API_KEY = "sk-..."
-   MODEL_NAME = "deepseek-chat"
-   ```
-
-### 图片尺寸
-
-```python
-IMAGE_WIDTH = 1242   # 宽度
-IMAGE_HEIGHT = 1660  # 高度（3:4 比例）
-```
-
-## 🐛 常见问题
-
-### API 配额超限
-
-**问题**: `429 You exceeded your current quota`
-
-**解决**:
-- 等待 24 小时配额重置
-- 切换到 `gemini-2.5-flash-lite` 模型
-- 查看配额: https://ai.dev/usage
-
-### Playwright 安装失败
-
-**解决**:
-```bash
-# 使用国内镜像
-export PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright/
-playwright install chromium
-```
-
-### 端口被占用
-
-**解决**:
-```bash
-# 修改 app.py 最后一行
-app.run(debug=True, port=5001)  # 改为其他端口
-```
-
-更多问题查看 [DEPLOYMENT.md](DEPLOYMENT.md)
-
-## 📝 更新日志
-
-### v1.0.4 (2026-01-01)
-- 🚫 新增违禁词检测功能：内置敏感词库（8大分类200+词汇），一键检测高亮显示
-- 🎨 界面布局优化：左侧面板精简、风格选择横向排列自动换行
-- 📐 输入框固定高度，生成按钮始终可见
-- 🗂️ 风格选择和预览合并到同一卡片区域
-
-### v1.0.3 (2025-12-31)
-- 😀 新增 Emoji 智能插入功能：AI 自动在每个要点前添加相关 emoji，让内容更生动
-
-### v1.0.2 (2025-12-31)
-- 🎨 多巴胺风格封面背景色更换为翠绿色 (#00B894)
-- 🔢 多巴胺风格页码优化为圆形黑底样式
-- 🍎 苹果极简风格重新设计：纯黑白灰配色，编号列表布局
-- 💊 知识胶囊风格重新设计：蓝紫渐变背景，白色内容卡片
-- 📝 Notion 风格改为苹果备忘录风格：纯白背景，简洁线条
-- 🔤 所有风格封面标题字号统一放大（110-130px）
-- 🗑️ 修复生成新图卡时旧文件残留问题
-- 🖼️ 小红书风格图片添加边框
-
-### v1.0.1 (2025-12-26)
-- 🖼️ 统一所有风格的图片尺寸和布局
-- 🐛 修复拍立得风格标题显示问题
-- ✨ 优化图片容器，确保视觉一致性
-
-### v1.0.0 (2025-12-15)
-- ✨ 初始版本发布
-- 🎨 支持 9 种图卡风格
-- 🤖 AI 智能决定卡片数量
-- 🔄 风格快速切换
-- 🌐 Web 界面
-- 📷 Markdown 图片智能分配
-
-## 📄 许可证
-
-MIT License - 仅供学习和个人使用
-
-## 🙏 致谢
-
-- Google Gemini API
-- Playwright
-- Flask
-- 所有开源贡献者
-
----
-
-**如有问题或建议，欢迎提交 Issue！**
-
-**祝你使用愉快！🎉**
+## 来源许可
+33 款主题来自 [lewislulu/html-ppt-skill](https://github.com/lewislulu/html-ppt-skill)，MIT 全文在 [licenses/html-ppt-MIT.txt](licenses/html-ppt-MIT.txt)。Inter / Noto Sans SC 来自 [Google Fonts](https://github.com/google/fonts)，OFL 在 `static/fonts/`。Noto Sans SC 自托管子集覆盖 GB2312 与常用标点，罕见汉字由系统字体回退。其余模板沿用本仓库现有作品，历史 README 曾提及 MIT 但无原始许可文件；发布前需由项目维护者确认原有作品的授权。

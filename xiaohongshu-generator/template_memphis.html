@@ -13,7 +13,7 @@
         }
 
         body {
-            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-family: 'Helvetica', 'Arial', 'Noto Sans SC', sans-serif;
             background: #E0F7FA;
             padding: 40px;
             display: flex;
@@ -139,9 +139,9 @@
         /* 图片样式 - 统一尺寸和布局 */
         .image-container {
             width: 100%;
-            flex: 1;
+            flex: 1 1 auto;
             min-height: 300px;
-            max-height: 500px;
+            max-height: 700px;
             margin-top: 50px;
             display: flex;
             align-items: center;
@@ -177,11 +177,90 @@
         }
 
         .content-container {
-            flex: 0 0 auto;
+            /* 可收缩，避免长要点把插图挤出卡片 */
+            flex: 0 1 auto;
+            min-height: 0;
             display: flex;
             flex-direction: column;
             gap: 40px;
             z-index: 2;
+        }
+
+        /* 无图时撑满剩余高度，消除底部死区 */
+        .card-content:not(:has(.image-container)) .content-container {
+            flex: 1 1 auto;
+            justify-content: space-evenly;
+        }
+
+        /* 5 条要点 + 插图时的中间档压缩 */
+        .card-content:has(.memphis-item:nth-child(5)) .content-container {
+            gap: 30px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(5)) .memphis-item {
+            padding: 32px 34px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(5)) .item-text {
+            font-size: 35px;
+            line-height: 1.44;
+        }
+
+        .card-content:has(.memphis-item:nth-child(5)) .header-bg {
+            font-size: 54px;
+            margin-bottom: 44px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(5)) .image-container {
+            min-height: 220px;
+            max-height: 380px;
+        }
+
+        /* 要点较多时逐级压缩内边距、字号与间距 */
+        .card-content:has(.memphis-item:nth-child(7)) .content-container {
+            gap: 24px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(7)) .memphis-item {
+            padding: 22px 30px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(7)) .item-text {
+            font-size: 32px;
+            line-height: 1.42;
+        }
+
+        .card-content:has(.memphis-item:nth-child(7)) .header-bg {
+            font-size: 48px;
+            margin-bottom: 30px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(7)) .image-container {
+            min-height: 200px;
+            max-height: 320px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(9)) .content-container {
+            gap: 16px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(9)) .memphis-item {
+            padding: 18px 24px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(9)) .item-text {
+            font-size: 28px;
+            line-height: 1.38;
+        }
+
+        .card-content:has(.memphis-item:nth-child(9)) .header-bg {
+            font-size: 44px;
+            margin-bottom: 28px;
+        }
+
+        .card-content:has(.memphis-item:nth-child(9)) .image-container {
+            min-height: 120px;
+            max-height: 210px;
         }
 
         .memphis-item {
@@ -208,6 +287,8 @@
             font-size: 38px;
             font-weight: bold;
             color: #333;
+            line-height: 1.45;
+            letter-spacing: -0.004em;
         }
 
         .footer-deco {
@@ -218,6 +299,12 @@
             height: 40px;
             background: repeating-linear-gradient(45deg, #000, #000 10px, #FFF 10px, #FFF 20px);
         }
+        .card-cover:has(.image-container) .cover-content-box { padding: 40px; }
+        .card-cover:has(.image-container) .cover-title { font-size: 84px; }
+        .card-cover:has(.image-container) .cover-subtitle { font-size: 32px; }
+        .card-cover:has(.image-container) .cover-tags { margin-top: 24px; gap: 12px; }
+        .card-cover:has(.image-container) .cover-tag { font-size: 20px; padding: 8px 16px; }
+        .card-cover .image-container { min-height: 240px; margin-top: 24px; }
     </style>
 </head>
 

@@ -13,7 +13,7 @@
         }
 
         body {
-            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
             background: #EAEAEA;
             padding: 40px;
             display: flex;
@@ -79,7 +79,9 @@
         .cover-title {
             font-size: 130px;
             font-weight: 800;
-            line-height: 1.1;
+            /* 大字号收紧行高，避免 130px 下行间过松 */
+            line-height: 1.16;
+            letter-spacing: -0.01em;
             margin-bottom: 40px;
             color: #111;
             z-index: 10;
@@ -88,7 +90,8 @@
         .cover-subtitle {
             font-size: 52px;
             color: #555;
-            line-height: 1.5;
+            line-height: 1.4;
+            letter-spacing: -0.005em;
             max-width: 1000px;
             z-index: 10;
             border-left: 8px solid #000;
@@ -117,9 +120,10 @@
         /* 图片样式 - 统一尺寸和布局 */
         .image-container {
             width: 100%;
-            flex: 1;
+            /* 原 max-height:500px 在要点少时留出 400px+ 死区，放宽上限让插图吃掉剩余空间 */
+            flex: 1 1 auto;
             min-height: 300px;
-            max-height: 500px;
+            max-height: 760px;
             margin-top: 50px;
             display: flex;
             align-items: center;
@@ -156,10 +160,13 @@
         .slide-title {
             font-size: 72px;
             font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: -0.008em;
             color: #111;
             max-width: 800px;
         }
 
+        /* 装饰性大号序号：纯视觉元素，对比度不适用 */
         .slide-index {
             font-size: 140px;
             color: #F0F0F0;
@@ -177,7 +184,34 @@
             flex-direction: column;
             gap: 50px;
             z-index: 1;
-            flex: 0 0 auto;
+            /* 有图时不占剩余高度，避免把插图挤出卡片 */
+            flex: 0 1 auto;
+            min-height: 0;
+        }
+
+        /* 无图时撑满，消除底部大片死区 */
+        .card-content:not(:has(.image-container)) .content-list {
+            flex: 1 1 auto;
+            justify-content: space-evenly;
+        }
+
+        /* 要点较多时逐级压缩间距与字号，避免插图被挤压 */
+        .card-content:has(.content-item:nth-child(7)) .content-list {
+            gap: 34px;
+        }
+
+        .card-content:has(.content-item:nth-child(7)) .content-text {
+            font-size: 38px;
+            line-height: 1.45;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-list {
+            gap: 26px;
+        }
+
+        .card-content:has(.content-item:nth-child(9)) .content-text {
+            font-size: 34px;
+            line-height: 1.42;
         }
 
         .content-item {
@@ -197,6 +231,7 @@
         .content-text {
             font-size: 42px;
             line-height: 1.5;
+            letter-spacing: -0.004em;
             color: #333;
             font-weight: 500;
         }
@@ -206,9 +241,13 @@
             bottom: 60px;
             right: 80px;
             font-size: 28px;
-            color: #999;
+            /* 原 #999 在白底仅 2.85:1，未达 4.5:1 */
+            color: #6E6E73;
             font-weight: 600;
         }
+        /* 配图时为五个长要点保留实际文本高度。 */
+        .card-content:has(.image-container) .content-list { flex: 0 0 auto; gap: 24px; }
+        .card-content:has(.image-container) .content-text { font-size: 36px; }
     </style>
 </head>
 
